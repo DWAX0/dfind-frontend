@@ -1,5 +1,6 @@
 /* 01 SUMMARY: 오늘의 결론(Claude) · 분야별 건수 · 신기술 확보 감지 · 주목 기업 · 분야별 주요 소식
-   하루를 고르면 그날 메일과 같은 범위(전날~당일), 기간을 고르면 그 기간 전체 */
+   날짜 하나만 고름 (기간 선택 없음). 그날 메일과 같은 범위(전날~당일)를 보여주고,
+   결론은 매일 9시 작업이 DB(daily_summaries)에 저장해 둔 것을 읽음 — 화면에서는 Claude 를 부르지 않음 */
 (async function () {
   'use strict';
   var main = await D.boot('summary');
@@ -17,7 +18,7 @@
   var sense = h('section', { class: 'card', 'aria-labelledby': 'sense-h' });
   var top = h('section', { class: 'card', 'aria-labelledby': 'top-h' });
   var news = h('section', { class: 'card', 'aria-labelledby': 'news-h' });
-  var bar = D.periodBar({ defaultPer: '1', onChange: load });
+  var bar = D.periodBar({ dayOnly: true, onChange: load });
   D.set(main, 
     h('header', { class: 'top' }, h('div', { class: 'grow' }, titleEl, subEl, pastEl)),
     bar, concl, tiles, sense, h('div', { class: 'row' }, h('div', { class: 'wide' }, top), h('div', { class: 'wide' }, news)));
@@ -44,7 +45,7 @@
       settle(D.rpc('dash_feed', { p_from: feedFrom, p_to: d, p_category: null, p_limit: 600 }))
     ]);
     drawConclusions(res[1], single);
-    drawTiles(res[0], res[2]);
+    drawTiles(res[0], res[2], '?per=range&from=' + feedFrom + '&to=' + d);
     drawSense(res[3], d);
     drawTop(res[2]);
     drawNews(res[4]);
@@ -89,11 +90,10 @@
     }));
   }
 
-  function drawTiles(rc, rs) {
+  function drawTiles(rc, rs, q) {
     if (!rc.ok) { D.set(tiles, D.fail(rc.e)); return; }
     var by = {};
     rc.v.forEach(function (x) { (by[x.category] = by[x.category] || []).push(x); });
-    var q = location.search;
     var kids = ['permit', 'market', 'research', 'disclosure'].map(function (c) {
       var list = (by[c] || []).sort(function (a, b) { return b.item_count - a.item_count; });
       var n = list.reduce(function (s, x) { return s + Number(x.item_count); }, 0);

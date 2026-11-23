@@ -22,7 +22,7 @@ dfind-frontend/
 ├─ index.html                 ← 첫 주소 → pages/index.html 로 바로 이동만 함
 ├─ pages/                     ← 화면(html)은 모두 여기 한 폴더
 │  ├─ login.html              ← 메일 로그인 링크 또는 비밀번호
-│  ├─ index.html              ← 01 SUMMARY (오늘의 결론·분야별 건수·신기술 확보 감지·주목 기업·주요 소식)
+│  ├─ index.html              ← 01 SUMMARY (날짜 하나만 고름. 오늘의 결론은 DB 에 저장된 것을 읽음)
 │  ├─ radar.html              ← 02 기업 레이더 (평가 기준 공개 + 기준일 점수·순위, 근거 펼치기)
 │  ├─ company.html            ← 03 기업 정보 (?id=… / id 없으면 기업 찾기)
 │  ├─ regulatory.html         ← 04 인허가·제도

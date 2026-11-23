@@ -226,6 +226,8 @@
     var p = new URLSearchParams(location.search);
     var TODAY = D.today();
     var st = { per: p.get('per') || o.defaultPer || '7', day: p.get('day') || TODAY, from: p.get('from') || D.addDays(TODAY, -6), to: p.get('to') || TODAY };
+    if (o.dayOnly) st.per = 'day'; // SUMMARY: 날짜 하나만 고름 (기간 없음)
+    if (st.day > TODAY) st.day = TODAY;
     var el = D.h('section', { class: 'period', 'aria-label': '날짜·기간 선택' });
     function range() {
       if (st.per === 'day') return { from: st.day, to: st.day };
@@ -235,6 +237,7 @@
     function save() {
       var q = new URLSearchParams(location.search);
       ['per', 'day', 'from', 'to'].forEach(function (k) { q.delete(k); });
+      if (o.dayOnly) { q.set('day', st.day); history.replaceState(null, '', '?' + q.toString()); return; }
       q.set('per', st.per);
       if (st.per === 'day') q.set('day', st.day);
       if (st.per === 'range') { q.set('from', st.from); q.set('to', st.to); }
@@ -244,15 +247,20 @@
     function draw() {
       var r = range();
       var presets = [['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['day', '날짜 지정'], ['range', '기간 지정']];
-      var kids = [D.h('b', { text: '조회' }),
-        D.h('div', { class: 'group', role: 'group', 'aria-label': '빠른 선택' }, presets.map(function (x) {
+      var kids = [D.h('b', { text: o.dayOnly ? '날짜' : '조회' })];
+      if (o.dayOnly) {
+        kids.push(D.h('button', { type: 'button', class: 'btn', 'aria-pressed': st.day === TODAY ? 'true' : 'false', text: '오늘',
+          onclick: function () { st.day = TODAY; fire(); } }));
+      } else {
+        kids.push(D.h('div', { class: 'group', role: 'group', 'aria-label': '빠른 선택' }, presets.map(function (x) {
           return D.h('button', { type: 'button', class: 'btn', 'aria-pressed': st.per === x[0] ? 'true' : 'false', text: x[1],
             onclick: function () { st.per = x[0]; fire(); } });
-        }))];
+        })));
+      }
       if (st.per === 'day') {
         kids.push(D.h('div', { class: 'group' },
           D.h('button', { type: 'button', class: 'icon-btn', 'aria-label': '하루 전', onclick: function () { st.day = D.addDays(st.day, -1); fire(); } }, D.svg('M15 5l-7 7 7 7')),
-          D.h('label', { class: 'field inline' }, '날짜', D.h('input', { type: 'date', value: st.day, max: TODAY,
+          D.h('label', { class: 'field inline' }, o.dayOnly ? '날짜 선택' : '날짜', D.h('input', { type: 'date', value: st.day, max: TODAY,
             onchange: function (e) { if (e.target.value) { st.day = e.target.value > TODAY ? TODAY : e.target.value; fire(); } } })),
           D.h('button', { type: 'button', class: 'icon-btn', 'aria-label': '하루 뒤', disabled: st.day >= TODAY,
             onclick: function () { if (st.day < TODAY) { st.day = D.addDays(st.day, 1); fire(); } } }, D.svg('M9 5l7 7-7 7'))));
