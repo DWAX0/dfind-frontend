@@ -13,41 +13,57 @@ Node.js·npm·빌드 도구를 쓰지 않습니다 (보안 정책).
 
 ---
 
-## 1. 구조
+## 1. 구조 (2026-11-24 1차 구현)
 
 ```
 dfind-frontend/
 ├─ README.md
 ├─ .nojekyll                  ← GitHub Pages가 파일을 가공하지 않도록 (빈 파일)
-├─ index.html                 ← 대시보드 메인 (마지막 수집 이후 신규 이벤트)
-├─ companies.html             ← 기업 목록·순위
-├─ company.html               ← 기업 페이지 (?id=… 카테고리별 타임라인·점수 근거)
-├─ regulatory.html            ← 의료기기 허가·인증
-├─ market.html                ← 시장·투자 동향
-├─ research.html              ← 연구·과제·공시
-├─ status.html                ← 수집 현황 (v_crawl_status)
-├─ login.html
-├─ admin/
-│  ├─ keywords.html           ← 키워드 사전·동의어
-│  ├─ assignments.html        ← 수집 대상별 키워드 배정 (뉴스는 신호별)
-│  ├─ targets.html            ← 수집 대상 사용/중지
-│  ├─ matching.html           ← 기업 매칭 검토 (pending)
-│  ├─ companies.html          ← 관심 기업·별칭·제외
-│  ├─ manual-events.html      ← 수동 확인 이벤트
-│  ├─ weights.html            ← 이벤트 유형 가중치
-│  └─ users.html              ← 사용자 권한
+├─ index.html                 ← 첫 주소 → pages/index.html 로 바로 이동만 함
+├─ pages/                     ← 화면(html)은 모두 여기 한 폴더
+│  ├─ login.html              ← 메일 로그인 링크 또는 비밀번호
+│  ├─ index.html              ← 01 SUMMARY (오늘의 결론·분야별 건수·신기술 확보 감지·주목 기업·주요 소식)
+│  ├─ radar.html              ← 02 기업 레이더 (평가 기준 공개 + 기준일 점수·순위, 근거 펼치기)
+│  ├─ company.html            ← 03 기업 정보 (?id=… / id 없으면 기업 찾기)
+│  ├─ regulatory.html         ← 04 인허가·제도
+│  ├─ market.html             ← 05 시장·투자 동향 (같은 사건 묶기)
+│  ├─ research.html           ← 06 연구·과제
+│  ├─ disclosure.html         ← 07 공시 (DART 수집 전이라 빈 화면)
+│  ├─ mail.html, status.html  ← 08 메일 리포트 · 09 수집 현황 (준비 중)
+│  ├─ admin-recipients.html   ← 관리자: 메일 수신자 (추가·수정·중지·삭제)
+│  ├─ admin-settings.html     ← 관리자: 기준 정보 (키워드·비슷한 말 / 언론사 RSS / 사용자·권한)
+│  └─ admin-logs.html         ← 관리자: 로그 (수집 / 메일 발송 / Claude 요약 / 변경 기록)
 ├─ assets/
-│  ├─ css/app.css
+│  ├─ css/app.css             ← 큰 글자·진한 색, 분류 색 4가지 고정
 │  └─ js/
 │     ├─ config.js            ← SUPABASE_URL, anon 키 (공개돼도 되는 값만)
-│     ├─ core.js              ← 로그인 확인, 메뉴, 공통 UI, admin 화면 접근 확인
-│     ├─ api.js               ← 조회·저장 함수
-│     └─ pages/               ← 화면별 JS (HTML 1개 = JS 1개)
+│     ├─ core.js              ← 로그인 확인, 왼쪽 메뉴, 글자 크게, 조회 막대(오늘·7일·30일·날짜 지정·기간 지정)
+│     ├─ category.js          ← 분야별 화면 공통 (종류별 칸·검색·목록)
+│     └─ pages/               ← 화면별 JS (html 1개 = JS 1개, 이름은 아래 표)
 └─ vendor/
-   └─ supabase.js             ← 버전 고정한 supabase-js UMD 단일 파일
+   ├─ supabase.js             ← supabase-js 2.119.2 UMD (npm 패키지의 dist/umd/supabase.js 그대로)
+   └─ supabase.LICENSE
 ```
 
----
+| 화면 (pages/) | JS (assets/js/pages/) |
+| --- | --- |
+| index · radar · company · login | summary · radar · company · login |
+| regulatory · market · research · disclosure | 같은 이름 (+ assets/js/category.js) |
+| mail · status | prepare |
+| admin-recipients · admin-settings · admin-logs | recipients · settings · logs |
+
+- 데이터는 DB 함수로만 읽습니다: `dash_feed`, `dash_feed_counts`, `dash_company_scores`, `dash_company`
+  (backend `database/42_dashboard.sql`). 로그인하고 권한(viewer·admin)이 있는 사람만 결과가 나옵니다.
+- 고른 날짜·기간은 주소(`?per=7`, `?per=day&day=2026-11-20`, `?per=range&from=…&to=…`)에 남아 새로고침·공유해도 유지됩니다.
+- 관리자 메뉴는 admin 에게만 보이고, 실제 차단은 DB 권한(RLS)이 합니다.
+
+### 처음 설정
+
+1. `assets/js/config.js` 에 Supabase **Project URL** 과 **anon(Publishable) 키**를 넣습니다. service_role·secret 키는 절대 넣지 않습니다.
+2. Supabase → Authentication → URL Configuration: Site URL 과 Redirect URLs 에
+   `https://dfind-lab.github.io/dfind-frontend/pages/index.html` (로그인 링크가 돌아올 곳) 이 있는지 확인합니다.
+3. 사용자는 Authentication → Users → Invite user 로 초대 → 관리자 › 기준 정보 › 사용자·권한에서 권한을 줍니다.
+   첫 관리자는 backend `40_roles.sql` 아래쪽 SQL 로 한 번 지정합니다.
 
 ## 2. GitHub Pages 설정 (테스트)
 
@@ -58,17 +74,18 @@ dfind-frontend/
 빌드가 없어서 별도 워크플로 없이 `main`에 push하면 바로 반영됩니다.
 
 **주의**
-- 주소가 `/dfind-frontend/` 하위 경로입니다. 링크·스크립트는 **상대경로**로 씁니다 (`assets/js/core.js`, 관리자 화면에서는 `../assets/js/core.js`).
+- 주소가 `/dfind-frontend/` 하위 경로입니다. 링크·스크립트는 **상대경로**로 씁니다. 화면은 모두 `pages/` 에 있으므로 화면끼리는 `radar.html`, 공통 파일은 `../assets/…`.
 - Pages는 응답 헤더를 지정할 수 없어 각 HTML `<head>`에 CSP를 넣습니다.
 
 ```html
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self';
-               connect-src 'self' https://<프로젝트ID>.supabase.co wss://<프로젝트ID>.supabase.co;
+               connect-src 'self' https://*.supabase.co wss://*.supabase.co;
                img-src 'self' data:; base-uri 'self'; form-action 'self'">
 ```
 
 - Pages는 약 10분 캐시합니다. JS·CSS를 고치면 HTML의 `?v=YYYYMMDD`를 바꿉니다.
+- 글꼴은 컴퓨터에 있는 글꼴(맑은 고딕 등)을 씁니다. CSP 때문에 외부 글꼴(Google Fonts)은 쓰지 않습니다.
 
 ---
 
@@ -76,25 +93,20 @@ dfind-frontend/
 
 - HTML에 인라인 `<script>`·`onclick` 없이, 화면별 JS 파일에서 이벤트를 연결합니다 (CSP `script-src 'self'`).
 - 모든 화면은 `core.js`가 먼저 로그인을 확인하고, 로그인이 없으면 `login.html`로 보냅니다.
-- `admin/` 화면은 `is_admin()`을 확인하지만, **실제 차단은 DB의 RLS**가 합니다. 화면 숨김은 편의일 뿐입니다.
+- `admin-*.html` 화면은 관리자인지 확인하지만, **실제 차단은 DB의 RLS**가 합니다. 화면 숨김은 편의일 뿐입니다.
 - 화면은 통합 테이블·뷰만 읽습니다. 출처별 원본 테이블은 관리자 화면에서만 필요한 경우 읽습니다.
 - 사용자 입력·수집 데이터를 화면에 넣을 때는 `textContent`를 쓰고 `innerHTML`에 그대로 넣지 않습니다.
 
 ---
 
-## 4. 만드는 순서
+## 4. 진행 상황
 
-| 단계 | 화면 | 이유 |
+| 단계 | 화면 | 상태 |
 | --- | --- | --- |
-| 7-1 | login, core.js, api.js | 공통 틀 |
-| 7-2 | admin/keywords, admin/assignments, admin/targets | 수집 품질을 좌우하므로 먼저 |
-| 7-3 | admin/matching, admin/companies | 기업 매칭 검토 |
-| 7-4 | admin/manual-events, admin/weights, admin/users | |
-| 8-1 | status | 수집이 잘 되는지 바로 확인 |
-| 8-2 | index, companies, company | 핵심 대시보드 |
-| 8-3 | regulatory, market, research | 카테고리 화면 |
-
----
+| 8-1 | login, core.js, SUMMARY, 기업 레이더, 기업 정보, 분야별 4개 | ✅ 1차 (출처 원본 기반, 점수 v0) |
+| 8-2 | 관리자: 메일 수신자·기준 정보·로그 | ✅ 1차 (시험 발송은 메일 발송 기능 연결 후) |
+| 8-3 | 메일 리포트·수집 현황 | 준비 중 (2차) |
+| 6 이후 | 통합 기업·이벤트(companies·events)로 전환, 관심 기업·매칭 검토 화면 | 통합 파이프라인 후 |
 
 ## 5. 로컬 실행
 
