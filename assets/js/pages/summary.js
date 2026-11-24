@@ -81,7 +81,7 @@
       : '수집 결과를 규칙에 따라 자동 정리 (혁신 지정 → 임상 승인 → 투자 → 허가 순)' + (D.role === 'admin' ? ' · 관리자 › 오늘의 결론 입력에서 바꿀 수 있음' : '');
     head.lastChild.textContent = how;
     if (!rows.length) {
-      D.set(concl, head, D.empty(single ? '이날 요약이 아직 없습니다. 매일 오전 9시 수집이 끝나면 Claude 가 작성합니다.' : '이 기간에 만들어진 요약이 없습니다.'));
+      D.set(concl, head, D.empty(single ? '이날 요약이 아직 없습니다. 매일 오전 9시 수집이 끝나면 자동으로 만들어집니다.' : '이 기간에 만들어진 요약이 없습니다.'));
       return;
     }
     if (single) {

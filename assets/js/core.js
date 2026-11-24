@@ -150,8 +150,16 @@
   function renderNav(active, role) {
     var nav = document.getElementById('side');
     if (!nav) return;
-    var kids = [D.h('a', { class: 'brand', href: D.root + 'index.html' },
-      D.h('span', { class: 'brand-mark', text: 'D*' }), D.h('span', null, D.h('b', { text: 'D*Find' }), D.h('small', { text: '디지털헬스 기업 발굴' })))];
+    var brand = D.h('a', { class: 'brand', href: D.root + 'index.html' },
+      D.h('span', { class: 'brand-mark', text: 'D*' }), D.h('span', null, D.h('b', { text: 'D*Find' }), D.h('small', { text: '디지털헬스 기업 발굴' })));
+    // 좁은 화면에서는 메뉴를 접어 두고 '메뉴' 버튼으로 펼침
+    var toggle = D.h('button', { type: 'button', class: 'menu-toggle', 'aria-expanded': 'false', 'aria-controls': 'side-body',
+      onclick: function (e) {
+        var open = nav.classList.toggle('open');
+        e.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+        e.currentTarget.lastChild.textContent = open ? '닫기' : '메뉴';
+      } }, D.svg('M4 7h16M4 12h16M4 17h16', 20), D.h('span', { text: '메뉴' }));
+    var kids = [];
     MENU.forEach(function (g) {
       if (g.admin && role !== 'admin') return;
       kids.push(D.h('div', { class: 'menu-group' }, D.h('span', { class: 'menu-label', text: g.label }),
@@ -166,7 +174,7 @@
       D.user ? D.h('span', { text: D.user.email }) : null,
       D.user ? D.h('button', { type: 'button', class: 'side-btn', text: '로그아웃', onclick: logout }) : null);
     kids.push(foot);
-    D.set(nav, kids);
+    D.set(nav, D.h('div', { class: 'side-top' }, brand, toggle), D.h('div', { class: 'side-body', id: 'side-body' }, kids));
     setFontLabel();
   }
   async function loadCrawlHealth() {
