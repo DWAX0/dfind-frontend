@@ -72,9 +72,14 @@
   function drawConclusions(r, single) {
     var head = h('div', { class: 'card-head' }, h('h2', { id: 'concl-h', text: single ? '오늘의 결론' : '기간 동안의 결론 (날짜별)' }),
       single ? D.badge('메일 본문 첫 단락', 'ok') : null,
-      h('span', { class: 'note', text: 'Claude 가 수집 결과를 읽고 정리 · 네이버 검색 기사는 약관에 따라 제외' }));
+      h('span', { class: 'note', id: 'concl-how' }));
     if (!r.ok) { D.set(concl, head, D.fail(r.e)); return; }
     var rows = r.v;
+    var m = rows[0] && rows[0].model;
+    var how = m === 'claude-app' ? '담당자가 Claude 앱으로 수집 결과를 정리해 입력 · 네이버 검색 기사는 약관에 따라 제외'
+      : m && m !== 'rule-based' ? 'Claude 가 수집 결과를 읽고 정리 · 네이버 검색 기사는 약관에 따라 제외'
+      : '수집 결과를 규칙에 따라 자동 정리 (혁신 지정 → 임상 승인 → 투자 → 허가 순)' + (D.role === 'admin' ? ' · 관리자 › 오늘의 결론 입력에서 바꿀 수 있음' : '');
+    head.lastChild.textContent = how;
     if (!rows.length) {
       D.set(concl, head, D.empty(single ? '이날 요약이 아직 없습니다. 매일 오전 9시 수집이 끝나면 Claude 가 작성합니다.' : '이 기간에 만들어진 요약이 없습니다.'));
       return;
@@ -115,8 +120,7 @@
   function senseItem(f, cls) {
     return h('div', { class: 'sense-item' }, D.badge(f.kind, cls),
       f.company_name ? D.companyLink(f.company_id, f.company_name) : null,
-      f.url ? h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer', text: D.clean(f.title).slice(0, 60) })
-        : h('span', { text: D.clean(f.title).slice(0, 60) }),
+      h('a', { href: D.itemHref(f.item_key), text: D.clean(f.title).slice(0, 60) }),
       h('span', { class: 'when', text: D.fmt(f.item_date) }));
   }
   function drawSense(r, d) {

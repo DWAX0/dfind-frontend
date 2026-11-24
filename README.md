@@ -29,7 +29,9 @@ dfind-frontend/
 │  ├─ market.html             ← 05 시장·투자 동향 (같은 사건 묶기)
 │  ├─ research.html           ← 06 연구·과제
 │  ├─ disclosure.html         ← 07 공시 (DART 수집 전이라 빈 화면)
+│  ├─ item.html               ← 정보 한 건 자세히 (?key=…): 본문·첨부(내용 보기·내려받기)·원본 보기
 │  ├─ mail.html, status.html  ← 08 메일 리포트 · 09 수집 현황 (준비 중)
+│  ├─ admin-summary.html      ← 관리자: 오늘의 결론 입력 (Claude 앱에 붙여넣을 글 복사 → 답 붙여넣고 저장, API 비용 없음)
 │  ├─ admin-recipients.html   ← 관리자: 메일 수신자 (추가·수정·중지·삭제)
 │  ├─ admin-settings.html     ← 관리자: 기준 정보 (키워드·비슷한 말 / 언론사 RSS / 사용자·권한)
 │  └─ admin-logs.html         ← 관리자: 로그 (수집 / 메일 발송 / Claude 요약 / 변경 기록)
@@ -47,10 +49,10 @@ dfind-frontend/
 
 | 화면 (pages/) | JS (assets/js/pages/) |
 | --- | --- |
-| index · radar · company · login | summary · radar · company · login |
+| index · radar · company · item · login | summary · radar · company · item · login |
 | regulatory · market · research · disclosure | 같은 이름 (+ assets/js/category.js) |
 | mail · status | prepare |
-| admin-recipients · admin-settings · admin-logs | recipients · settings · logs |
+| admin-summary · admin-recipients · admin-settings · admin-logs | summary-input · recipients · settings · logs |
 
 - 데이터는 DB 함수로만 읽습니다: `dash_feed`, `dash_feed_counts`, `dash_company_scores`, `dash_company`
   (backend `database/42_dashboard.sql`). 로그인하고 권한(viewer·admin)이 있는 사람만 결과가 나옵니다.

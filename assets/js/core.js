@@ -101,9 +101,8 @@
   /* 정보 한 줄 (dash_feed 행) */
   D.feedItem = function (f, opts) {
     var o = opts || {};
-    var title = f.url
-      ? D.h('a', { class: 'list-title', href: f.url, target: '_blank', rel: 'noopener noreferrer', text: D.clean(f.title) || '(제목 없음)' })
-      : D.h('span', { class: 'list-title', text: D.clean(f.title) || '(제목 없음)' });
+    // 제목 → 대시보드 안 자세히 보기, 옆에 원본 보기
+    var title = D.h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' });
     return D.h('div', { class: 'list-item' },
       D.h('div', { class: 'list-meta' },
         D.catBadge(f.category, o.kindOnly ? f.kind : f.kind),
@@ -111,8 +110,11 @@
         D.companyLink(f.company_id, f.company_name),
         D.h('span', { text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') })),
       title,
-      f.detail && !o.noDetail ? D.h('span', { class: 'list-detail', text: D.clean(f.detail).slice(0, 220) }) : null);
+      f.detail && !o.noDetail ? D.h('span', { class: 'list-detail', text: D.clean(f.detail).slice(0, 220) }) : null,
+      D.h('span', { class: 'list-links' }, D.h('a', { href: D.itemHref(f.item_key), text: '내용 보기' }),
+        f.url ? D.h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer', text: '원본 보기' }) : null));
   };
+  D.itemHref = function (key) { return D.root + 'item.html?key=' + encodeURIComponent(key); };
 
   // ---- 데이터 ------------------------------------------------------------
   D.rpc = async function (name, args) {
@@ -133,7 +135,7 @@
     market: 'M3 17l6-6 4 4 8-8M15 7h6v6', research: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3',
     disc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7', mail: 'M3 6h18v12H3zM3 6l9 7 9-7', status: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18',
     users: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8',
-    gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01'
+    pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01'
   };
   var MENU = [
     { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum]] },
@@ -141,7 +143,7 @@
     { label: '분야별 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit], ['market', '시장·투자 동향', 'market.html', I.market],
       ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc]] },
     { label: '기록·운영', items: [['mail', '메일 리포트', 'mail.html', I.mail, '준비 중'], ['status', '수집 현황', 'status.html', I.status, '준비 중']] },
-    { label: '관리자', admin: true, items: [['recipients', '메일 수신자', 'admin-recipients.html', I.users],
+    { label: '관리자', admin: true, items: [['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen], ['recipients', '메일 수신자', 'admin-recipients.html', I.users],
       ['settings', '기준 정보', 'admin-settings.html', I.gear], ['logs', '로그 관리', 'admin-logs.html', I.log]] }
   ];
 
