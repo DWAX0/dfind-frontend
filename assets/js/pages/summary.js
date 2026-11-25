@@ -20,13 +20,14 @@
   var concl = h('section', { class: 'card concl', 'aria-labelledby': 'concl-h' });
   var tiles = h('section', { class: 'tiles', 'aria-label': '분야별 건수' });
   var kindTiles = h('section', { class: 'card', 'aria-labelledby': 'kinds-h' });
-  var sense = h('section', { class: 'card', 'aria-labelledby': 'sense-h' });
+  var sense = h('section', { class: 'card sense-card', 'aria-labelledby': 'sense-h' });
   var top = h('section', { class: 'card', 'aria-labelledby': 'top-h' });
   var news = h('section', { class: 'card', 'aria-labelledby': 'news-h' });
   var bar = D.periodBar({ dayOnly: true, onChange: load });
   D.set(main, 
-    h('header', { class: 'top' }, h('div', { class: 'grow' }, titleEl, subEl, pastEl)),
-    bar, concl, tiles, kindTiles, sense, h('div', { class: 'row' }, h('div', { class: 'wide' }, top), h('div', { class: 'wide' }, news)));
+    h('header', { class: 'top' }, h('div', { class: 'grow' }, titleEl,
+      h('p', { class: 'sub' }, h('span', { class: 'greet-notice', text: '사내 전용 · 보기 전용 · 메일 수신자·발송 이력은 표시하지 않음' })), subEl, pastEl)),
+    bar, concl, sense, tiles, kindTiles, top, news);
   bar.start();
 
   function settle(p) { return p.then(function (v) { return { ok: true, v: v }; }, function (e) { return { ok: false, e: e }; }); }
@@ -35,7 +36,7 @@
     var single = r.from === r.to;
     var d = r.to;
     var feedFrom = single ? D.addDays(d, -1) : r.from;
-    titleEl.textContent = !single ? '기간 요약' : d === TODAY ? '오늘의 요약' : Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8)) + '일 요약';
+    titleEl.textContent = !single ? '기간 요약' : d === TODAY ? D.greeting() : Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8)) + '일 요약';
     subEl.textContent = single ? D.fmtLong(d) + ' · 전날과 당일에 발표·승인된 정보' : D.fmt(r.from) + ' ~ ' + D.fmt(r.to) + ' 동안 발표·승인된 정보';
     pastEl.hidden = !(single && d < TODAY);
     pastEl.textContent = '지난 날짜입니다. 결론은 그날 오전 9시 메일과 같은 내용입니다.';
@@ -96,7 +97,7 @@
     return h('span', { class: 'chips right' }, msg, btn);
   }
   function drawConclusions(r, single, d, range) {
-    var head = h('div', { class: 'card-head' }, h('h2', { id: 'concl-h', text: single ? '오늘의 결론' : '기간 동안의 결론 (날짜별)' }),
+    var head = h('div', { class: 'card-head' }, h('h2', { id: 'concl-h' }, h('span', { class: 'concl-pill', text: single ? '오늘의 결론' : '기간 동안의 결론 (날짜별)' })),
       single ? D.badge('메일 본문 첫 단락', 'ok') : null,
       h('span', { class: 'note', id: 'concl-how' }));
     var mk = single && r.ok ? makeButton(d, r.v[0], range) : null;
@@ -179,19 +180,20 @@
   }
 
   function drawTop(r) {
-    var head = h('div', { class: 'card-head' }, h('h2', { id: 'top-h', text: '주목 기업 TOP 5' }),
+    var head = h('div', { class: 'card-head' }, h('h2', { id: 'top-h', text: '주목 기업' }), h('span', { class: 'note', text: '조기 발굴 점수 상위 6곳' }),
       h('a', { class: 'right', href: 'radar.html', text: '기업 레이더 전체' }));
     if (!r.ok) { D.set(top, head, D.fail(r.e)); return; }
     if (!r.v.length) { D.set(top, head, D.empty('점수를 계산할 기업이 없습니다.')); return; }
-    var table = h('table', { class: 'grid' }, h('tbody', null, r.v.slice(0, 5).map(function (c) {
-      var bar = h('span', { class: 'meter' }, D.width(h('span', { class: 'b1' }), c.total));
-      return h('tr', null, h('td', { class: 'rank', text: c.rank }),
-        h('td', null, h('a', { class: 'company-link', href: D.companyHref(c.company_id), text: c.company_name }),
-          h('span', { class: 'list-meta', text: [c.recent_signal, D.fmt(c.recent_date)].filter(Boolean).join(' · ') })),
-        h('td', null, bar),
-        h('td', null, h('span', { class: 'score', text: c.total }), h('br'), delta(c.delta)));
-    })));
-    D.set(top, head, h('div', { class: 'table-wrap' }, table), h('p', { class: 'note', text: '점수는 임시 계산(v0)입니다. 기준은 기업 레이더 화면에 있습니다.' }));
+    var CATK = { '혁신의료기기 지정': 'permit', '평가 유예': 'permit', '신의료기술 평가': 'permit', '디지털의료기기 허가': 'permit', '임상시험 승인': 'research', '투자': 'market' };
+    D.set(top, head, h('div', { class: 'coms' }, r.v.slice(0, 6).map(function (c) {
+      var cat = CATK[c.recent_signal] || 'company';
+      return h('div', { class: 'com cat-' + cat + '-top' },
+        h('div', { class: 'h' }, h('a', { class: 'company-link cname', href: D.companyHref(c.company_id), text: c.company_name }),
+          c.has_innovation ? h('span', { class: 'mini', text: '★ 혁신 지정' }) : null, h('span', { class: 'mini', text: c.rank + '위' })),
+        h('div', { class: 'scoreline' }, h('b', { text: c.total }), h('span', { class: 'note', text: '/ 100' }),
+          h('span', { class: 'meter small' }, D.width(h('span', { class: 'b1' }), c.total)), delta(c.delta)),
+        h('span', { class: 'note', text: c.recent_signal ? '최근 ' + c.recent_signal + ' · ' + D.fmt(c.recent_date) : '최근 신호 없음' }));
+    })), h('p', { class: 'note', text: '점수는 임시 계산(v0)입니다. 기준은 기업 레이더 화면에 있습니다.' }));
   }
   function delta(n) {
     if (n > 0) return h('span', { class: 'delta-up', text: '▲ ' + n });

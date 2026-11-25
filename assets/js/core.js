@@ -48,6 +48,12 @@
     return s;
   };
   D.width = function (el, pct) { el.style.width = Math.max(0, Math.min(100, pct)) + '%'; return el; };
+  /* 요일별 인사 (한국 시간) */
+  D.greeting = function () {
+    var G = ['안녕하세요, 행복한 일요일입니다.', '안녕하세요, 즐거운 월요일입니다!', '안녕하세요, 활기찬 화요일입니다!', '안녕하세요, 힘찬 수요일입니다!',
+      '안녕하세요, 여유로운 목요일입니다!', '안녕하세요, 기분 좋은 금요일입니다!', '안녕하세요, 편안한 토요일 보내고 계신가요?'];
+    return G[new Date(D.today() + 'T12:00:00+09:00').getUTCDay()];
+  };
   /* 결론 문장: **핵심 낱말** 만 강조 (글자는 textContent 로만 넣음) */
   D.rich = function (text) {
     var parts = String(text || '').split(/\*\*(.+?)\*\*/);
@@ -98,7 +104,8 @@
     disclosure: { label: '공시', page: 'disclosure.html' }
   };
   D.badge = function (text, cls) { return D.h('span', { class: 'badge ' + (cls || 'gray'), text: text }); };
-  D.catBadge = function (cat, text) { return D.badge(text || (D.CAT[cat] || {}).label || cat, 'cat-' + cat); };
+  var HOSP = { '병원 협력': 1, '전시·해외': 1 };   // 병원·해외 신호는 초록
+  D.catBadge = function (cat, text) { return D.badge(text || (D.CAT[cat] || {}).label || cat, HOSP[text] ? 'kind-hosp' : 'cat-' + cat); };
   D.companyHref = function (id) { return D.root + 'company.html?id=' + encodeURIComponent(id); };
   D.companyLink = function (id, name) {
     if (!name) return null;
@@ -268,7 +275,11 @@
             D.svg(m[3]), m[1], m[4] && m[0] !== active ? D.h('span', { class: 'menu-tag', text: m[4] }) : null);
         })));
     });
+    // 메뉴 아래: 다음 자동 실행 (진한 칸) · 수집 상태
+    if (D.user) kids.push(D.h('div', { class: 'side-card dday', id: 'side-next' }, D.h('small', { text: '다음 일정' }), D.h('b', { text: '확인 중…' })),
+      D.h('a', { class: 'side-card stat', id: 'side-stat', href: D.root + 'status.html' }, D.h('b', { text: '수집 상태' }), D.h('span', { text: '확인 중…' })));
     D.set(nav, D.h('div', { class: 'side-top' }, brand, toggle), D.h('div', { class: 'side-body', id: 'side-body' }, kids));
+    if (D.user) loadNextSchedule();
     renderGnb(role);
   }
 
@@ -368,7 +379,33 @@
       var hl = document.getElementById('crawl-health');
       hl.textContent = nAll ? (nAll - nBad) + '곳 정상' + (nBad ? ' · 점검 필요 ' + nBad + '곳' : '') : '';
       hl.className = nBad ? 'bad' : 'ok';
+      var st = document.getElementById('side-stat');
+      if (st) D.set(st, D.h('b', { text: '수집 상태' }), D.h('span', { text: nAll ? '정상 ' + (nAll - nBad) + ' · 점검 필요 ' + nBad : '기록 없음' }),
+        D.h('span', { text: '마지막 ' + (last ? D.fmtTime(last) : '–') }));
     } catch (e) { document.getElementById('last-crawl').textContent = '확인 못 함'; }
+  }
+  /* 다음 자동 실행 (수집·메일 중 가장 가까운 것) */
+  async function loadNextSchedule() {
+    var box = document.getElementById('side-next');
+    if (!box) return;
+    try {
+      var s = await D.rpc('dash_schedules');
+      var now = new Date(), best = null;
+      ((s && s.items) || []).filter(function (x) { return x.enabled; }).forEach(function (x) {
+        for (var i = 0; i < 8; i++) {   // 오늘부터 8일 안에서 다음 실행 시각 (한국 시간)
+          var day = D.addDays(D.today(), i);
+          var wd = new Date(day + 'T12:00:00+09:00').getUTCDay();
+          if (x.weekdays_only && (wd === 0 || wd === 6)) continue;
+          var t = new Date(day + 'T' + x.run_time + ':00+09:00');
+          if (t > now) { if (!best || t < best.t) best = { t: t, x: x, day: day }; break; }
+        }
+      });
+      if (!best) { D.set(box, D.h('small', { text: '다음 일정' }), D.h('b', { text: '자동 실행 꺼짐' }), D.h('small', { text: '수집 현황에서 시각을 정합니다' })); return; }
+      var mins = Math.round((best.t - now) / 60000);
+      D.set(box, D.h('small', { text: '다음 일정 · ' + (best.x.name === 'mail_daily' ? '요약 메일' : '매일 수집') }), D.h('b', { text: best.x.label }),
+        D.h('small', { text: D.fmt(best.day) + ' ' + best.x.run_time }),
+        D.h('span', { class: 'd', text: mins < 60 ? mins + '분 뒤' : mins < 1440 ? Math.floor(mins / 60) + '시간 뒤' : 'D-' + Math.ceil(mins / 1440) }));
+    } catch (e) { D.set(box, D.h('small', { text: '다음 일정' }), D.h('b', { text: '확인 못 함' })); }
   }
 
   // ---- 글자 크기 ----------------------------------------------------------

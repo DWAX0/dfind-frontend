@@ -524,3 +524,166 @@ td.err-cell { color: var(--red); font-size: 0.88rem; max-width: 320px; }
 .kw.kw-search { border-color: #0a7a5c; background: #e6f6f0; color: #075e47; font-weight: 700; }
 .w-kw { width: 260px; }
 .kw-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* =====================================================================
+   디자인 시스템 v2 (2026-11-25, 화면 기획안 반영)
+   밝은 배경 · 흰 왼쪽 메뉴 · 얇은 선 · 초록 강조색 · 신호 종류별 색
+   (인허가 파랑 · 투자 주황 · 병원·해외 초록 · 연구 보라 · 공시 회색 · 리스크 빨강)
+   글꼴: IBM Plex Sans KR(본문) · Space Grotesk(숫자). 글자 크기는 어르신 기준을 유지
+   ===================================================================== */
+:root {
+  --bg: #F3F5F8; --card: #FFFFFF; --sunk: #F7F9FB; --ink: #0D1B2A; --ink2: #1F2D3D; --muted: #5A6A7D; --faint: #8B98A8;
+  --line: #E1E6ED; --line2: #EBEFF4;
+  --accent: #00957F; --accent-soft: #E2F5F1; --accent-ink: #006B5B;
+  --navy: #0D1B2A; --navy2: #1B2B3C; --green: #00957F; --green-bg: #E2F5F1; --green-fg: #006B5B;
+  --permit: #2F6FED; --permit-bg: #EAF1FE; --permit-fg: #1F4FB8;
+  --market: #E07A2E; --market-bg: #FDF1E7; --market-fg: #A5531A;
+  --hosp: #1E9A57; --hosp-bg: #E8F6EE; --hosp-fg: #14703F;
+  --research: #7A5AE0; --research-bg: #F1EDFD; --research-fg: #5A3CC0;
+  --disclosure: #5A6A7D; --disclosure-bg: #EEF1F5; --disclosure-fg: #3E4C5C;
+  --red: #D94654; --red-bg: #FDECEE; --red-fg: #A72F3B; --warn: #B7791F; --warn-bg: #FFF6DD; --warn-fg: #8A5A12;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-num: "Space Grotesk", "IBM Plex Sans KR", system-ui, sans-serif;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent-ink); }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.layout { background: var(--bg); box-shadow: none; max-width: none; }
+.main > * { max-width: 1420px; }
+
+/* 왼쪽 메뉴: 흰 바탕 */
+.side { background: var(--card); color: var(--ink); border-right: 1px solid var(--line); padding: 18px 14px; gap: 10px; }
+.brand, .brand:hover { color: var(--ink); }
+.brand-mark { background: var(--accent); color: #fff; width: 40px; height: 40px; border-radius: 10px; font-family: var(--f-num); }
+.brand b { font-family: var(--f-num); letter-spacing: -0.01em; }
+.brand small { color: var(--muted); }
+.menu-label { color: var(--faint); font-size: 0.8rem; letter-spacing: 0.04em; border: 1px dashed var(--line); border-radius: 8px; padding: 3px 10px; margin: 6px 0 2px; }
+.menu-item { color: var(--ink); min-height: 42px; font-size: 0.98rem; }
+.menu-item:hover { background: var(--sunk); color: var(--ink); }
+.menu-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; }
+.menu-tag { background: var(--sunk); color: var(--muted); border: 1px solid var(--line); }
+.menu-toggle { color: var(--ink); border-color: var(--line); }
+.side-card { border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 2px; font-size: 0.86rem; }
+.side-card.dday { background: var(--navy); color: #fff; margin-top: 8px; }
+.side-card.dday small { opacity: 0.75; }
+.side-card.dday b { font-size: 1.02rem; }
+.side-card.dday .d { font-family: var(--f-num); font-size: 1.6rem; font-weight: 700; line-height: 1.1; margin: 4px 0 2px; }
+.side-card.stat { border: 1px solid var(--line); color: var(--muted); }
+.side-card.stat b { color: var(--ink); }
+
+/* 위쪽 막대 */
+.gnb { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.gnb-site b { color: var(--ink); font-family: var(--f-num); }
+
+/* 제목·인사 */
+.title { font-size: 1.65rem; letter-spacing: -0.015em; }
+.greet-notice { display: inline-block; background: var(--warn-bg); color: var(--warn-fg); border-radius: 6px; padding: 2px 10px; font-size: 0.85rem; font-weight: 600; }
+
+/* 카드·버튼·칩·입력 */
+.card { border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(13, 27, 42, 0.04), 0 8px 24px -16px rgba(13, 27, 42, 0.12); }
+.btn { border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font-weight: 600; min-height: 40px; }
+.btn:hover { background: var(--sunk); border-color: #C9D2DD; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+.btn.on, .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.btn.danger { border-color: var(--red); color: var(--red); }
+.chip { border: 1px solid var(--line); color: var(--ink); font-weight: 600; min-height: 38px; }
+.chip:hover { border-color: #C9D2DD; }
+.chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.input, .period input[type="date"] { border: 1px solid #C9D2DD; border-radius: 8px; }
+.input:focus { border-color: var(--accent); }
+.period { border-radius: 12px; }
+.period .range { color: var(--ink); font-family: var(--f-num); }
+
+/* 숫자 */
+.tile-num, .score, .score-big, .kpi .tile-num, td.num-cell, .rank { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+
+/* 칸: 분야 색 윗선 */
+.tile { border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(13, 27, 42, 0.04); }
+.tile:hover { border-color: #C9D2DD; border-top-color: var(--accent); }
+.tile:has(.dot-permit) { border-top-color: var(--permit); }
+.tile:has(.dot-market) { border-top-color: var(--market); }
+.tile:has(.dot-research) { border-top-color: var(--research); }
+.tile:has(.dot-disclosure) { border-top-color: var(--disclosure); }
+.tile:has(.dot-company) { border-top-color: var(--accent); }
+.tile[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); }
+.dot { width: 9px; height: 9px; border-radius: 3px; }
+.title .dot { width: 12px; height: 12px; }
+
+/* 배지: 분야 · 종류 색 */
+.badge { font-weight: 600; border-radius: 6px; font-size: 0.82rem; }
+.cat-permit { background: var(--permit-bg); color: var(--permit-fg); }
+.cat-market { background: var(--market-bg); color: var(--market-fg); }
+.cat-research { background: var(--research-bg); color: var(--research-fg); }
+.cat-disclosure { background: var(--disclosure-bg); color: var(--disclosure-fg); }
+.badge.kind-hosp { background: var(--hosp-bg); color: var(--hosp-fg); }
+.badge.new { background: var(--market); }
+.badge.star { background: var(--permit); }
+.badge.ok { background: var(--hosp-bg); color: var(--hosp-fg); }
+.badge.bad { background: var(--red); }
+.badge.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.dot-permit { background: var(--permit); } .dot-market { background: var(--market); } .dot-research { background: var(--research); }
+.dot-disclosure { background: var(--disclosure); } .dot-company { background: var(--accent); }
+
+/* 표 */
+table.grid th { background: var(--sunk); color: var(--muted); font-weight: 600; font-size: 0.88rem; border-bottom: 1px solid var(--line); }
+table.grid td { border-top: 1px solid var(--line2); }
+.table-wrap { border-radius: 10px; }
+
+/* 탭 */
+.tabs { border-bottom: 1px solid var(--line); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* 목록 */
+.list-title { color: var(--ink); }
+.list-title:hover { color: var(--accent-ink); }
+
+/* SUMMARY: 오늘의 결론 */
+.card.concl { border: 1px solid var(--line); border-left: 4px solid var(--accent); }
+.concl-pill { display: inline-block; background: var(--accent); color: #fff; border-radius: 6px; padding: 1px 10px; font-size: 0.85rem; font-weight: 700; }
+strong.kp { color: var(--permit-fg); background: linear-gradient(transparent 60%, var(--permit-bg) 60%); }
+
+/* SUMMARY: 신기술 확보 감지 (확보 파랑 · 확보 기대 보라) */
+.card.sense-card { border-top: 3px solid var(--permit); }
+.sense-col { border-radius: 10px; }
+.sense-col.secured { background: var(--permit-bg); }
+.sense-col.expected { background: var(--research-bg); }
+.sense-col.secured h3 { color: var(--permit-fg); }
+.sense-col.expected h3 { color: var(--research-fg); }
+.sense-item { border-radius: 8px; }
+.k-secured { background: var(--permit); color: #fff; }
+.k-expected { background: var(--research); color: #fff; }
+
+/* SUMMARY: 주목 기업 카드 */
+.coms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.com { border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 10px; padding: 12px 14px; background: var(--card); display: flex; flex-direction: column; gap: 6px; }
+.com.cat-permit-top { border-top-color: var(--permit); } .com.cat-market-top { border-top-color: var(--market); }
+.com.cat-research-top { border-top-color: var(--research); } .com.cat-disclosure-top { border-top-color: var(--disclosure); }
+.com .h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.com .cname { font-weight: 700; font-size: 1.05rem; }
+.com .mini { font-size: 0.78rem; border-radius: 5px; padding: 0 7px; background: var(--sunk); border: 1px solid var(--line); color: var(--muted); }
+.com .scoreline { display: flex; align-items: center; gap: 8px; }
+.com .scoreline b { font-family: var(--f-num); font-size: 1.35rem; }
+@media (max-width: 1200px) { .coms { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .coms { grid-template-columns: minmax(0, 1fr); } }
+
+/* 미터(점수 막대) */
+.meter { background: var(--sunk); border: 1px solid var(--line); }
+.b1 { background: var(--permit); } .b2 { background: var(--market); } .b3 { background: var(--hosp); } .b4 { background: var(--research); }
+.c1 { color: var(--permit-fg); } .c2 { color: var(--market-fg); } .c3 { color: var(--hosp-fg); } .c4 { color: var(--research-fg); }
+
+/* 알림 */
+.notice { border-radius: 10px; border: 1px solid #F1D79A; background: var(--warn-bg); color: var(--warn-fg); }
+.notice.info { background: var(--permit-bg); color: var(--permit-fg); border-color: #C9DAFB; }
+.admin-tag { background: var(--red); }
+.mini-bars > span { background: var(--permit); }
+svg.chart .line.s1 { stroke: var(--permit); } svg.chart .dot-pt.s1 { fill: var(--permit); } .sw.s1 { background: var(--permit); }
+svg.chart .line.s2 { stroke: var(--market); } svg.chart .dot-pt.s2 { fill: var(--market); } .sw.s2 { background: var(--market); }
+svg.chart .line.s3 { stroke: var(--research); } svg.chart .dot-pt.s3 { fill: var(--research); } .sw.s3 { background: var(--research); }
+.sense-item a:not(.company-link) { color: var(--ink); text-decoration: none; }
+.sense-item a:not(.company-link):hover { color: var(--accent-ink); text-decoration: underline; }
+.sense-item .company-link { font-weight: 700; color: var(--ink); text-decoration: none; }
+.kind-chip:hover { border-color: var(--accent); color: var(--accent-ink); }
+.kw.kw-search { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.archive-date[aria-current="true"] { background: var(--navy); }
