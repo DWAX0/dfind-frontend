@@ -206,18 +206,21 @@
     add();
     return list.length ? box : D.empty('없습니다.');
   }
-  /* 뉴스: 키워드 · 언론사 · 제목 · 날짜(yyyy-mm-dd) 한 줄씩, 누르면 원문으로 바로 */
-  function newsList(rows) {
-    if (!rows.length) return D.empty('기업 이름이 들어간 뉴스가 없습니다.');
-    var cells = {};
-    var list = h('ul', { class: 'news-mini' }, rows.map(function (f) {
+  function newsTotal(groups) { return groups.reduce(function (n, g) { return n + 1 + g.dups.length; }, 0); }
+  /* 뉴스: 키워드 · 언론사 · 제목 · 날짜(yyyy-mm-dd) 한 줄씩, 누르면 원문으로 바로. 같은 기사는 '외 N건' */
+  function newsList(groups) {
+    if (!groups.length) return D.empty('기업 이름이 들어간 뉴스가 없습니다.');
+    var cells = {}, rows = groups.map(function (g) { return g.f; });
+    var list = h('ul', { class: 'news-mini' }, groups.map(function (g) {
+      var f = g.f;
       var kw = cells[f.item_key] = h('span', { class: 'nm-kw' }, h('span', { class: 'note', text: '…' }));
       var go = f.url ? { href: f.url, target: '_blank', rel: 'noopener noreferrer' } : { href: D.itemHref(f.item_key) };
       return h('li', { class: D.isNewItem(f) ? 'is-new' : null }, kw,
         h('span', { class: 'nm-pub', text: f.source_label || '' }),
         h('a', Object.assign({ class: 'nm-title', title: D.clean(f.title) }, go), D.clean(f.title) || '(제목 없음)'),
         D.isNewItem(f) ? D.badge('NEW', 'new') : null,
-        h('span', { class: 'nm-date', text: f.item_date || '' }));
+        h('span', { class: 'nm-date', text: f.item_date || '' }),
+        g.dups.length ? h('span', { class: 'nm-dups' }, D.dupToggle(g.dups)) : null);
     }));
     D.loadNewsKeywords(rows).then(function (kw) {
       rows.forEach(function (f) {
@@ -225,25 +228,30 @@
         D.set(cells[f.item_key], k ? h('span', { class: 'kw-pill', title: (kw[f.item_key] || []).map(function (x) { return x.keyword; }).join(', '), text: k.keyword }) : h('span', { class: 'note', text: '—' }));
       });
     }, function () { rows.forEach(function (f) { D.set(cells[f.item_key], h('span', { class: 'note', text: '—' })); }); });
-    return h('div', null, h('p', { class: 'note', text: '수집한 뉴스 중 제목·요약에 기업 이름이 들어간 기사 (최근 1년, ' + rows.length + '건) · 제목을 누르면 언론사 원문이 열립니다' }), list);
+    return h('div', null, h('p', { class: 'note', text: '수집한 뉴스 중 제목·요약에 기업 이름이 들어간 기사 (최근 1년, ' + rows.length + '건' + (newsTotal(groups) > rows.length ? ', 같은 기사 묶기 전 ' + newsTotal(groups) + '건' : '') + ') · 제목을 누르면 언론사 원문이 열립니다' }), list);
   }
 
   // ---- 화면 전체 ----
   D.renderCompany = function (box, data, opts) {
     var o = opts || {};
     var c = data.company, sc = data.score, tl = data.timeline || [], kinds = kindsOf(tl);
-    var news = (data.news || []).map(function (n) { return Object.assign({ category: 'market', kind: '뉴스', company_id: null, company_name: null }, n); });
-    // 전체 소식 = 인허가·연구(최근 1년) + 기업 뉴스, 날짜 최신순
-    var all = tl.concat(news).sort(function (a, b) { return String(b.item_date || '').localeCompare(String(a.item_date || '')); });
+    var newsRows = (data.news || []).map(function (n) { return Object.assign({ category: 'market', kind: '뉴스', company_id: null, company_name: null }, n); });
+    // 같은 기사(여러 언론사가 쓴 같은 사건)는 1건으로, 나머지는 '외 N건'
+    var newsGroups = D.groupSame(newsRows, true);
+    var news = newsGroups.map(function (g) { return g.f; });
+    // 전체 소식 = 인허가·연구(최근 1년) + 기업 뉴스(묶음), 날짜 최신순
+    var allGroups = tl.map(function (f) { return { f: f, dups: [] }; }).concat(newsGroups)
+      .sort(function (a, b) { return String(b.f.item_date || '').localeCompare(String(a.f.item_date || '')); });
+    var all = allGroups.map(function (g) { return g.f; });
     var neca = tl.filter(function (f) { return NECA.indexOf(f.kind) >= 0; });
     function anyNew(lst) { return lst.some(function (r) { return D.isNew(r.collected_at, 'emedi'); }); }
     var TABS = [
-      ['전체 소식', all.length, all.some(D.isNewItem), function () { return more(all, function (f) { return D.feedItem(f); }, 20); }],
+      ['전체 소식', all.length, all.some(D.isNewItem), function () { return more(allGroups, function (g) { return D.listEntry(g, { files: {}, q: '' }); }, 20); }],
       ['혁신의료기기', data.innovations.length, anyNew(data.innovations), function () { return innovationCards(data.innovations); }],
       ['허가 제품', data.registrations.length, anyNew(data.registrations), function () { return registrationTable(data.registrations); }],
       ['임상시험', data.trials.length, anyNew(data.trials), function () { return trialList(data.trials); }],
       ['NECA 평가·유예', neca.length, neca.some(D.isNewItem), function () { return neca.length ? neca.map(function (f) { return D.feedItem(f); }) : D.empty('NECA 평가·유예 정보가 없습니다.'); }],
-      ['뉴스', news.length, news.some(D.isNewItem), function () { return newsList(news); }]
+      ['뉴스', news.length, news.some(D.isNewItem), function () { return newsList(newsGroups); }]
     ];
     var tabBody = h('div', { role: 'tabpanel', id: 'tab-body-' + c.company_id });
     var tabBar = h('div', { class: 'tabs wrap-tabs', role: 'tablist', 'aria-label': '기업 자료' });

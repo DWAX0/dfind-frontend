@@ -102,7 +102,8 @@
     return t ? new Date(t).getTime() : new Date(D.addDays(D.today(), -1) + 'T00:00:00+09:00').getTime();
   };
   D.isNew = function (ts, origin) { return !!ts && new Date(ts).getTime() >= D.newSinceOf(origin); };
-  D.isNewItem = function (f) { return !!f && D.isNew(f.collected_at, f.origin); };
+  // 같은 기사 묶음은 묶음에서 가장 먼저 들어온 때(first_seen) 기준: 이미 본 사건의 후속 보도는 NEW 아님
+  D.isNewItem = function (f) { return !!f && D.isNew(f.first_seen || f.collected_at, f.origin); };
   D.newDot = function (label) { return D.h('span', { class: 'new-dot', title: label || '새로 들어온 정보가 있습니다', text: 'N' }); };
   D.num = function (n) { return Number(n || 0).toLocaleString('ko-KR'); };
 

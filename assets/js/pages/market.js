@@ -11,8 +11,8 @@
       h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' }),
       D.isNewItem(f) ? D.badge('NEW', 'new') : null,
       D.foundInside(f, q) ? D.badge('본문에서 찾음', 'warn') : null,
-      f.company_name || g.dups.length ? h('span', { class: 'list-meta' }, D.companyLink(f.company_id, f.company_name),
-        g.dups.length ? h('span', { class: 'note', text: '같은 소식 ' + (g.dups.length + 1) + '건' }) : null) : null);
+      f.company_name ? h('span', { class: 'list-meta' }, D.companyLink(f.company_id, f.company_name)) : null,
+      D.dupToggle(g.dups));
   }
   function kwOf(ctx, g) {
     var all = [];
@@ -48,7 +48,7 @@
           h('a', { class: 'lead-title', href: D.itemHref(f.item_key), text: D.clean(f.title) }),
           f.detail ? h('p', { class: 'lead-summary', text: D.clean(f.detail).slice(0, i === 0 ? 260 : 140) }) : null,
           h('p', { class: 'note' }, [f.source_label, D.fmt(f.item_date)].filter(Boolean).join(' · '),
-            g.dups.length ? ' · 같은 소식 ' + (g.dups.length + 1) + '건' : '',
+            g.dups.length ? ' · 외 ' + g.dups.length + '건 (같은 기사)' : '',
             f.company_name ? ' · ' : '', D.companyLink(f.company_id, f.company_name)));
       })));
   }
@@ -56,7 +56,7 @@
   D.categoryPage({
     page: 'market', category: null, dot: 'market', title: '뉴스', defaultPer: '7', groupable: true,
     only: function (f) { return /^news:/.test(f.item_key); },
-    sub: '수집한 기사 전체 — 투자 · 병원 협력 · 전시 · R&D · 논문 · 업계 뉴스 (기사 날짜 기준) · 같은 사건은 한 줄로 묶음',
+    sub: '수집한 기사 전체 — 투자 · 병원 협력 · 전시 · R&D · 논문 · 업계 뉴스 (기사 날짜 기준) · 같은 기사는 한 줄로 묶고 \'외 N건\'으로 접음 (건수·NEW 도 1건)',
     notice: '네이버 검색 기사는 이용 약관에 따라 20일이 지나면 자동으로 지워집니다. 기사 본문은 저작권 때문에 원본 사이트에서 봅니다. NEW = 마지막 뉴스 수집 이후 새로 들어온 기사.',
     kinds: KINDS,
     kindNotes: { '투자': '네이버 투자 검색', '병원 협력': '네이버 병원 검색', '전시·해외': '네이버 전시 검색', 'R&D 과제': '네이버 R&D 검색', '논문·연구': '논문 관련 기사', '뉴스': '언론사 RSS 등' },

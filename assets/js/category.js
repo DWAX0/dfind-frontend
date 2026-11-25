@@ -57,17 +57,63 @@
     });
   };
 
-  function norm(t) { return D.clean(t).replace(/\[[^\]]*\]|\([^)]*\)|[^0-9a-z가-힣]/gi, '').slice(0, 22); }
-  /* 같은 사건(제목이 거의 같은 기사) 묶기 */
-  D.groupSame = function (list, on) {
+  /* 같은 기사 묶기 (뉴스만, 인허가·공시는 건마다 다른 사건이라 묶지 않음)
+     - 묶음 키: 서버가 뉴스 수집 때 계산한 것(dash_news_groups · group_key, common/news_dedup.py 규칙)
+     - 서버 키가 없는 기사: 언론사 꼬리·말머리·기호를 뗀 제목이 8글자 이상 똑같을 때만
+     - 대표: 투자 > 병원 협력 > R&D 과제 > 전시·해외 > 뉴스 > 논문·연구 → 기업명 → 금액 → 최신. 나머지는 '외 N건'
+     - NEW·건수: 묶음 1건, 묶음에서 가장 먼저 들어온 때 기준 */
+  var KIND_ORDER = { '투자': 0, '병원 협력': 1, 'R&D 과제': 2, '전시·해외': 3, '뉴스': 4, '논문·연구': 5 };
+  var MONEY = /\d[\d,.]*\s*(조|억|천만|만)\s*원?/;
+  D.titleKey = function (t) {
+    var s = D.clean(t || '');
+    for (var n = 0; n < 3; n++) s = s.replace(/^\s*(\[[^\]]{1,15}\]|【[^】]{1,15}】|<[^>]{1,15}>|\([^)]{1,10}\))\s*/, '');
+    s = s.replace(/\s+[-|│ㅣ]\s*[^-|│ㅣ]{1,15}$/, '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+    return s.length >= 8 ? s : null;
+  };
+  function leadRank(f) {
+    return [KIND_ORDER[f.kind] == null ? 4 : KIND_ORDER[f.kind], f.company_name ? 0 : 1, MONEY.test(f.title || '') ? 0 : 1];
+  }
+  function better(a, b) {  // a 가 대표로 더 나으면 true
+    var x = leadRank(a), y = leadRank(b);
+    for (var i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i];
+    return String(a.item_date || '') > String(b.item_date || '');
+  }
+  D.groupSame = function (list, on, groupOf) {
     if (!on) return list.map(function (f) { return { f: f, dups: [] }; });
-    var groups = [], seen = {};
+    var groups = [], seen = {}, map = groupOf || {};
     list.forEach(function (f) {
-      var k = norm(f.title);
-      if (k && seen[k]) seen[k].dups.push(f);
-      else { var g = { f: f, dups: [] }; groups.push(g); if (k) seen[k] = g; }
+      var news = /^news:/.test(f.item_key || '');
+      var k = news ? (map[f.item_key] || f.group_key || (D.titleKey(f.title) ? 't:' + D.titleKey(f.title) : null)) : null;
+      if (k && seen[k]) seen[k].all.push(f);
+      else { var g = { all: [f] }; groups.push(g); if (k) seen[k] = g; }
     });
-    return groups;
+    return groups.map(function (g) {
+      var lead = g.all.reduce(function (a, b) { return better(b, a) ? b : a; });
+      var first = g.all.map(function (x) { return x.collected_at; }).filter(Boolean).sort()[0];
+      var f = g.all.length > 1 ? Object.assign({}, lead, { first_seen: first }) : lead;
+      return { f: f, dups: g.all.filter(function (x) { return x !== lead; }) };
+    });
+  };
+  /* 뉴스 item_key → 묶음 키 (서버) */
+  D.loadNewsGroups = async function (rows) {
+    var keys = rows.map(function (f) { return f.item_key; }).filter(function (k) { return /^news:/.test(k || ''); });
+    var out = {};
+    for (var i = 0; i < keys.length; i += 1000) {
+      (await D.rpc('dash_news_groups', { p_keys: keys.slice(i, i + 1000) })).forEach(function (r) { out[r.item_key] = r.group_key; });
+    }
+    return out;
+  };
+  /* '외 N건' 펼치기 (같은 기사 목록: 언론사 · 제목 · 날짜, 누르면 원문) */
+  D.dupToggle = function (dups) {
+    if (!dups || !dups.length) return null;
+    var list = h('ul', { class: 'dup-list', hidden: true }, dups.map(function (f) {
+      return h('li', null, h('span', { class: 'dup-pub', text: f.source_label || '' }),
+        h('a', f.url ? { href: f.url, target: '_blank', rel: 'noopener noreferrer', text: D.clean(f.title) } : { href: D.itemHref(f.item_key), text: D.clean(f.title) }),
+        h('span', { class: 'dup-date', text: f.item_date || '' }));
+    }));
+    var btn = h('button', { type: 'button', class: 'dup-btn', 'aria-expanded': 'false', text: '외 ' + dups.length + '건 ▾',
+      onclick: function (e) { e.stopPropagation(); list.hidden = !list.hidden; btn.setAttribute('aria-expanded', list.hidden ? 'false' : 'true'); btn.textContent = '외 ' + dups.length + '건 ' + (list.hidden ? '▾' : '▴'); } });
+    return h('span', { class: 'dup-wrap' }, btn, list);
   };
   /* 검색어가 제목·요약에 없으면 '본문·첨부에서 찾음' 표시 */
   D.foundInside = function (f, q) {
@@ -79,7 +125,7 @@
   D.categoryPage = async function (o) {
     var main = await D.boot(o.page);
     if (!main) return;
-    var ctx = { rows: [], files: {}, kind: 'all', q: '', group: true, shown: 60 };
+    var ctx = { rows: [], files: {}, kind: 'all', q: '', group: true, shown: 60, groupOf: {} };
     var tiles = h('section', { class: 'tiles', 'aria-label': '종류별 건수 (누르면 걸러 보기)' });
     var listCard = h('section', { class: 'card', 'aria-labelledby': 'list-h' });
     var panel = D.searchPanel({ kinds: o.kinds, defaultPer: o.defaultPer, searchHint: o.searchHint, onSearch: load,
@@ -87,7 +133,7 @@
     ctx.kind = panel.state.kind;
     var right = o.groupable ? h('button', { type: 'button', class: 'btn', 'aria-pressed': 'true', id: 'group-btn',
       onclick: function (e) { ctx.group = !ctx.group; e.currentTarget.setAttribute('aria-pressed', ctx.group ? 'true' : 'false');
-        e.currentTarget.textContent = '같은 사건 묶기: ' + (ctx.group ? '켜짐' : '꺼짐'); drawList(); } }, '같은 사건 묶기: 켜짐') : null;
+        e.currentTarget.textContent = '같은 기사 묶기: ' + (ctx.group ? '켜짐' : '꺼짐'); drawTiles(); drawList(); } }, '같은 기사 묶기: 켜짐') : null;
     D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + (o.dot || o.category), right: right }),
       o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, panel.el, tiles, listCard);
     panel.start();
@@ -98,6 +144,8 @@
       try {
         ctx.rows = await D.rpc('dash_feed', { p_from: r.from, p_to: r.to, p_category: o.category || null, p_limit: 2000, p_query: r.q || null });
         if (o.only) ctx.rows = ctx.rows.filter(o.only);   // 예: 뉴스만 / 뉴스 빼고
+        ctx.groupOf = {};
+        if (o.groupable) { try { ctx.groupOf = await D.loadNewsGroups(ctx.rows); } catch (e) { console.error(e); } }
       }
       catch (e) { D.set(tiles); D.set(listCard, D.fail(e)); return; }
       drawTiles(); drawList();
@@ -105,10 +153,12 @@
       if (Object.keys(ctx.files).length) drawList();
     }
     function pick(k) { ctx.kind = k; ctx.shown = 60; panel.setKind(k); drawTiles(); drawList(); }
-    function drawTiles() { D.set(tiles, D.kindTiles(ctx.rows, { kinds: o.kinds, kindNotes: o.kindNotes, allNote: ctx.q ? '"' + ctx.q + '" 검색 결과' : '' }, ctx.kind, pick)); }
+    function shownRows() { return o.groupable && ctx.group ? D.groupSame(ctx.rows, true, ctx.groupOf).map(function (g) { return g.f; }) : ctx.rows; }
+    function drawTiles() { D.set(tiles, D.kindTiles(shownRows(), { kinds: o.kinds, kindNotes: o.kindNotes, allNote: ctx.q ? '"' + ctx.q + '" 검색 결과' : '' }, ctx.kind, pick)); }
     function drawList() {
-      var list = ctx.rows.filter(function (f) { return ctx.kind === 'all' || f.kind === ctx.kind; });
-      var groups = D.groupSame(list, o.groupable && ctx.group);
+      // 묶은 뒤 대표 종류로 거름 (같은 기사가 투자·뉴스 두 칸에 두 번 세지지 않게)
+      var groups = D.groupSame(ctx.rows, o.groupable && ctx.group, ctx.groupOf).filter(function (g) { return ctx.kind === 'all' || g.f.kind === ctx.kind; });
+      var list = [].concat.apply([], groups.map(function (g) { return [g.f].concat(g.dups); }));
       if (o.renderList) { o.renderList(listCard, groups, ctx, { pick: pick, redraw: drawList, total: list.length }); return; }
       var items = groups.slice(0, ctx.shown).map(function (g) { return D.listEntry(g, ctx); });
       D.set(listCard,
@@ -123,11 +173,7 @@
   D.listEntry = function (g, ctx) {
     var el = D.feedItem(g.f, { files: ctx.files[g.f.item_key] });
     if (D.foundInside(g.f, ctx.q)) el.querySelector('.list-meta').appendChild(D.badge('본문·첨부에서 찾음', 'warn'));
-    if (g.dups.length) {
-      var more = h('div', { hidden: true }, g.dups.map(function (f) { return D.feedItem(f, { noDetail: true, files: ctx.files[f.item_key] }); }));
-      el.appendChild(h('button', { type: 'button', class: 'btn small', 'aria-expanded': 'false', text: '같은 소식 ' + g.dups.length + '건 더 보기',
-        onclick: function (e) { more.hidden = !more.hidden; e.currentTarget.setAttribute('aria-expanded', more.hidden ? 'false' : 'true'); } }), more);
-    }
+    if (g.dups.length) el.appendChild(D.dupToggle(g.dups));
     return el;
   };
 })();

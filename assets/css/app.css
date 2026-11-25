@@ -885,3 +885,15 @@ svg.chart .bar.s4 { fill: var(--accent); } svg.chart .bar.s5 { fill: var(--marke
 .pub-all { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; background: var(--card); }
 .pub-all > summary { cursor: pointer; font-weight: 700; min-height: 36px; display: flex; align-items: center; }
 .pub-all[open] > summary { margin-bottom: 10px; }
+/* 같은 기사 묶기: '외 N건' 펼치기 */
+.dup-wrap { display: block; margin-top: 4px; }
+.dup-btn { border: 1px solid var(--line); background: var(--sunk); color: var(--muted); border-radius: 999px; padding: 1px 10px; font: inherit;
+  font-size: 0.84rem; font-weight: 600; cursor: pointer; min-height: 26px; }
+.dup-btn:hover, .dup-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+.dup-list { list-style: none; margin: 6px 0 2px; padding: 6px 10px; border-left: 3px solid var(--line); background: var(--sunk); border-radius: 0 8px 8px 0; }
+.dup-list li { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 3px 0; font-size: 0.9rem; }
+.dup-list a { color: var(--ink2); }
+.dup-pub, .dup-date { color: var(--muted); font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dup-date { font-family: var(--f-num); }
+.news-mini .nm-dups { grid-column: 1 / -1; padding-left: 104px; }
+.news-mini .nm-dups .dup-wrap { margin-top: 0; }
