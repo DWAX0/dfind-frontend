@@ -1,4 +1,4 @@
-/* 관리자 › 기준 정보: 키워드(·비슷한 말) / 언론사 RSS / 사용자·권한 */
+/* 관리자 › 기준 정보: 키워드(·비슷한 말) / 언론사 RSS / 언론사 이름 / 사용자·권한 */
 (async function () {
   'use strict';
   var main = await D.boot('settings', { admin: true });
@@ -14,7 +14,7 @@
   D.set(main, D.header('기준 정보 관리', '수집 키워드, 뉴스를 가져올 언론사, 대시보드 사용자를 관리합니다. 바꾼 내용은 다음 수집부터 반영됩니다.', { admin: true }),
     tabs, msg, panel);
 
-  var TABS = [['kw', '키워드', drawKeywords], ['feed', '언론사 RSS', drawFeeds], ['user', '사용자·권한', drawUsers]];
+  var TABS = [['kw', '키워드', drawKeywords], ['feed', '언론사 RSS', drawFeeds], ['pub', '언론사 이름', drawPublishers], ['user', '사용자·권한', drawUsers]];
   function drawTabs() {
     D.set(tabs, TABS.map(function (t) {
       return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': tab === t[0] ? 'true' : 'false', text: t[1],
@@ -161,29 +161,138 @@
     draw();
   }
 
-  // ---- 사용자·권한 ----
+  // ---- 언론사 이름 (네이버 검색 기사는 주소만 있어 주소 → 언론사명 사전으로 이름을 보여 줌) ----
+  async function drawPublishers() {
+    var unnamed, names;
+    try {
+      unnamed = await D.rpc('admin_unnamed_publishers', { p_days: 60 });
+      names = await D.q(D.sb.from('news_publishers').select('domain,publisher_name').order('publisher_name'));
+    } catch (e) { D.set(panel, D.fail(e)); return; }
+    var q = h('input', { class: 'input', type: 'search', placeholder: '언론사명·주소 찾기', 'aria-label': '등록된 언론사 찾기' });
+    var listBox = h('div');
+    async function save(domain, name, done) {
+      name = (name || '').trim();
+      if (!name) { say('언론사명을 입력해 주세요.', 'error'); return; }
+      try {
+        await D.q(D.sb.from('news_publishers').upsert({ domain: domain, publisher_name: name }, { onConflict: 'domain' }));
+        say(domain + ' → ' + name + ' 로 저장했습니다. 뉴스 화면·메일에 바로 반영됩니다.');
+        if (done) done(); else drawPublishers();
+      } catch (e) { say('저장하지 못했습니다: ' + err(e), 'error'); }
+    }
+    var newDom = h('input', { class: 'input', id: 'p-dom', placeholder: '예: medicaltimes.com' });
+    var newName = h('input', { class: 'input', id: 'p-name', placeholder: '예: 메디칼타임즈' });
+    function addNew() {
+      var d = newDom.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^(www|m)\./, '');
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) { say('주소는 medicaltimes.com 처럼 도메인만 입력해 주세요.', 'error'); return; }
+      save(d, newName.value);
+    }
+    function drawList() {
+      var t = q.value.trim().toLowerCase();
+      var rows = names.filter(function (n) { return !t || n.domain.indexOf(t) >= 0 || n.publisher_name.toLowerCase().indexOf(t) >= 0; });
+      D.set(listBox, h('div', { class: 'table-wrap' }, h('table', { class: 'grid' },
+        h('thead', null, h('tr', null, ['언론사명', '주소(도메인)', ''].map(function (x) { return h('th', { scope: 'col', text: x }); }))),
+        h('tbody', null, rows.slice(0, 300).map(function (n) {
+          var inp = h('input', { class: 'input small', value: n.publisher_name, 'aria-label': n.domain + ' 언론사명' });
+          return h('tr', null, h('td', null, inp), h('td', { class: 'nowrap', text: n.domain }),
+            h('td', null, h('span', { class: 'chips' },
+              h('button', { type: 'button', class: 'btn small', text: '저장', onclick: function () { save(n.domain, inp.value, function () { n.publisher_name = inp.value.trim(); }); } }),
+              h('button', { type: 'button', class: 'btn small danger', text: '삭제', onclick: async function () {
+                try { await D.q(D.sb.from('news_publishers').delete().eq('domain', n.domain)); say(n.domain + ' 이름을 지웠습니다'); drawPublishers(); }
+                catch (e) { say('지우지 못했습니다: ' + err(e), 'error'); }
+              } }))));
+        })))), h('p', { class: 'note', text: '등록 ' + names.length + '곳' + (rows.length > 300 ? ' · 앞 300곳만 보임 (찾기로 좁혀 주세요)' : '') }));
+    }
+    q.addEventListener('input', drawList);
+    D.set(panel, h('h2', { text: '언론사 이름' }),
+      h('p', { class: 'note', text: '네이버 검색으로 모은 기사는 언론사 이름 없이 주소만 옵니다. 여기서 주소마다 언론사명을 정하면 뉴스 화면·기업 정보·메일에 이름으로 보입니다. (하위 주소도 같이 적용: chosun.com → news.chosun.com)' }),
+      h('h3', { class: 'sub-h', text: '이름이 없는 언론사 (최근 60일 기사)' }),
+      unnamed.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'grid' },
+        h('thead', null, h('tr', null, ['주소(도메인)', '기사', '최근 기사 제목', '언론사명'].map(function (x) { return h('th', { scope: 'col', text: x }); }))),
+        h('tbody', null, unnamed.map(function (u) {
+          var inp = h('input', { class: 'input small', placeholder: '언론사명', 'aria-label': u.domain + ' 언론사명' });
+          inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') save(u.domain, inp.value); });
+          return h('tr', null, h('td', { class: 'nowrap' }, h('a', { href: 'https://' + u.domain, target: '_blank', rel: 'noopener noreferrer', text: u.domain })),
+            h('td', { class: 'nowrap', text: D.num(u.articles) + '건' }), h('td', { class: 'wrap', text: D.clean(u.sample_title || '') }),
+            h('td', null, h('span', { class: 'chips nowrap' }, inp, h('button', { type: 'button', class: 'btn small primary', text: '저장', onclick: function () { save(u.domain, inp.value); } }))));
+        })))) : D.empty('모든 기사에 언론사명이 있습니다.'),
+      h('h3', { class: 'sub-h', text: '직접 추가' }),
+      h('div', { class: 'top' }, h('label', { class: 'field', for: 'p-dom' }, '주소(도메인)', newDom), h('label', { class: 'field', for: 'p-name' }, '언론사명', newName),
+        h('button', { type: 'button', class: 'btn primary', text: '추가', onclick: addNew })),
+      h('details', { class: 'pub-all' }, h('summary', { text: '등록된 언론사 ' + names.length + '곳 보기 · 고치기' }),
+        h('div', { class: 'top' }, q), listBox));
+    drawList();
+  }
+
+  // ---- 사용자·권한: 추가 · 이름 · 권한 · 비밀번호 초기화 ----
   async function drawUsers() {
     var users;
     try { users = await D.rpc('admin_list_users'); } catch (e) { D.set(panel, D.fail(e)); return; }
-    var body = h('tbody', null, users.map(function (u) {
-      var me = D.user && u.user_id === D.user.id;
-      var sel = h('select', { class: 'input', 'aria-label': u.email + ' 권한', disabled: me },
-        [['', '권한 없음'], ['viewer', '보기'], ['admin', '관리자']].map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
-      sel.value = u.role || '';
-      sel.addEventListener('change', async function () {
-        try {
-          if (!sel.value) await D.q(D.sb.from('user_roles').delete().eq('user_id', u.user_id));
-          else await D.q(D.sb.from('user_roles').upsert({ user_id: u.user_id, role: sel.value }, { onConflict: 'user_id' }));
-          say(u.email + ' 권한을 바꿨습니다');
-        } catch (e) { say('바꾸지 못했습니다: ' + err(e), 'error'); drawUsers(); }
-      });
-      return h('tr', null, h('td', { text: u.email }), h('td', null, sel, me ? h('span', { class: 'list-meta', text: '본인 권한은 바꿀 수 없습니다' }) : null),
-        h('td', { text: u.last_sign_in_at ? D.fmtTime(u.last_sign_in_at) : '접속 기록 없음' }));
-    }));
-    D.set(panel, h('h2', { text: '사용자·권한' }),
-      h('p', { class: 'note', text: '보기 = 모든 화면 조회, 관리자 = 관리자 메뉴까지. 새 사용자는 Supabase › Authentication › Users › Invite user 로 초대한 뒤 여기서 권한을 줍니다.' }),
-      h('div', { class: 'table-wrap' }, h('table', { class: 'grid' }, h('thead', null, h('tr', null,
-        ['이메일', '권한', '마지막 접속'].map(function (t) { return h('th', { scope: 'col', text: t }); }))), body)));
+    var ROLES = [['viewer', '보기'], ['admin', '관리자']];
+    var em = h('input', { class: 'input', id: 'u-email', type: 'email', placeholder: 'name@회사.com', autocomplete: 'off' });
+    var nm = h('input', { class: 'input', id: 'u-name', placeholder: '예: 홍길동', autocomplete: 'off' });
+    var rl = h('select', { class: 'input', id: 'u-role' }, ROLES.map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
+    var hint = h('span', { class: 'note' });
+    function showHint() { var v = em.value.trim().toLowerCase(); hint.textContent = v.indexOf('@') > 0 ? '처음 비밀번호: ' + v.split('@')[0] : ''; }
+    em.addEventListener('input', showHint);
+    async function add() {
+      var v = em.value.trim().toLowerCase();
+      if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v)) { say('이메일을 정확히 입력해 주세요.', 'error'); em.focus(); return; }
+      if (!nm.value.trim()) { say('이름을 입력해 주세요.', 'error'); nm.focus(); return; }
+      try {
+        await D.rpc('admin_create_user', { p_email: v, p_name: nm.value.trim(), p_role: rl.value });
+        say(nm.value.trim() + '(' + v + ') 계정을 만들었습니다. 처음 비밀번호는 "' + v.split('@')[0] + '" 이고, 첫 로그인 때 새 비밀번호로 바꾸게 됩니다.');
+        drawUsers();
+      } catch (e) { say('만들지 못했습니다: ' + err(e), 'error'); }
+    }
+    var resetAsk = null;
+    function draw() {
+      var body = h('tbody', null, users.map(function (u) {
+        var me = D.user && u.user_id === D.user.id;
+        var name = h('input', { class: 'input small', value: u.display_name || '', placeholder: '이름', 'aria-label': u.email + ' 이름' });
+        async function saveName() {
+          if ((u.display_name || '') === name.value.trim()) return;
+          try { await D.rpc('admin_set_user_name', { p_user_id: u.user_id, p_name: name.value.trim() }); u.display_name = name.value.trim(); say(u.email + ' 이름을 바꿨습니다'); }
+          catch (e) { say('바꾸지 못했습니다: ' + err(e), 'error'); }
+        }
+        name.addEventListener('change', saveName);
+        name.addEventListener('keydown', function (e) { if (e.key === 'Enter') name.blur(); });
+        var sel = h('select', { class: 'input small', 'aria-label': u.email + ' 권한', disabled: me },
+          [['', '권한 없음']].concat(ROLES).map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
+        sel.value = u.role || '';
+        sel.addEventListener('change', async function () {
+          try {
+            if (!sel.value) await D.q(D.sb.from('user_roles').delete().eq('user_id', u.user_id));
+            else await D.q(D.sb.from('user_roles').upsert({ user_id: u.user_id, role: sel.value }, { onConflict: 'user_id' }));
+            u.role = sel.value || null; say(u.email + ' 권한을 바꿨습니다');
+          } catch (e) { say('바꾸지 못했습니다: ' + err(e), 'error'); drawUsers(); }
+        });
+        var reset = resetAsk === u.user_id
+          ? h('span', { class: 'chips nowrap' },
+              h('button', { type: 'button', class: 'btn small danger', text: '"' + u.email.split('@')[0] + '" 로 초기화', onclick: async function () {
+                try { await D.rpc('admin_reset_password', { p_user_id: u.user_id }); resetAsk = null; u.must_change_password = true;
+                  say(u.email + ' 비밀번호를 "' + u.email.split('@')[0] + '" 로 초기화했습니다. 다음 로그인 때 새 비밀번호로 바꾸게 됩니다.'); draw(); }
+                catch (e) { say('초기화하지 못했습니다: ' + err(e), 'error'); }
+              } }),
+              h('button', { type: 'button', class: 'btn small', text: '취소', onclick: function () { resetAsk = null; draw(); } }))
+          : h('button', { type: 'button', class: 'btn small', text: '비밀번호 초기화', onclick: function () { resetAsk = u.user_id; draw(); } });
+        return h('tr', null,
+          h('td', null, name),
+          h('td', { class: 'nowrap' }, u.email, me ? h('span', { class: 'list-meta', text: '나' }) : null),
+          h('td', null, sel),
+          h('td', null, u.must_change_password ? D.badge('비밀번호 변경 전', 'warn') : D.badge('사용 중', 'ok')),
+          h('td', { class: 'nowrap', text: u.last_sign_in_at ? D.fmtTime(u.last_sign_in_at) : '접속 기록 없음' }),
+          h('td', null, reset));
+      }));
+      D.set(panel, h('h2', { text: '사용자·권한' }),
+        h('div', { class: 'add-box' }, h('b', { text: '사용자 추가' }),
+          h('div', { class: 'top' }, h('label', { class: 'field', for: 'u-email' }, '아이디 (회사 이메일)', em), h('label', { class: 'field', for: 'u-name' }, '이름', nm),
+            h('label', { class: 'field', for: 'u-role' }, '권한', rl), h('button', { type: 'button', class: 'btn primary', text: '추가', onclick: add })),
+          hint),
+        h('p', { class: 'note', text: '보기 = 모든 화면 조회, 관리자 = 관리자 메뉴까지. 처음·초기화 비밀번호는 이메일 @ 앞부분이고, 그 비밀번호로 로그인하면 새 비밀번호를 정해야 다음 화면으로 갑니다. 이름은 칸에서 고치면 바로 저장됩니다.' }),
+        h('div', { class: 'table-wrap' }, h('table', { class: 'grid users-table' }, h('thead', null, h('tr', null,
+          ['이름', '아이디(이메일)', '권한', '상태', '마지막 접속', '비밀번호'].map(function (t) { return h('th', { scope: 'col', text: t }); }))), body)));
+    }
+    draw();
   }
 
   drawTabs();

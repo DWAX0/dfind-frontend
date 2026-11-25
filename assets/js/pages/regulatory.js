@@ -1,6 +1,6 @@
 /* 04 인허가·제도 (기획안 4-1 주간별 인허가)
    [주차 칩: 이번 주 앞뒤 4주 + 건수] [이전 주 · 주차 선택 · 다음 주 · 이번 주 | 기간 조회 | 검색어(본문·첨부까지)]
-   [종류별 요약 칸] [종류 탭] [표: 날짜 · 종류 · 업체 · 내용 · 첨부 · 신규 · 원문] — 신규(24시간 안에 들어온 것)는 줄 색으로 표시 */
+   [종류별 요약 칸] [종류 탭] [표: 날짜 · 종류 · 업체 · 내용 · 첨부 · 신규 · 원문] — 신규(마지막 수집 이후 들어온 것)는 줄 색으로 표시 */
 (async function () {
   'use strict';
   var main = await D.boot('regulatory');
@@ -93,7 +93,7 @@
     D.set(chips, [-4, -3, -2, -1, 0, 1, 2, 3, 4].map(function (k) {
       var a = D.addDays(thisMon, k * 7), b = D.addDays(a, 6), w = isoWeek(a);
       var inWeek = weekRows.filter(function (f) { return f.item_date >= a && f.item_date <= b; });
-      var nNew = inWeek.filter(function (f) { return D.isNew(f.collected_at); }).length;
+      var nNew = inWeek.filter(function (f) { return D.isNewItem(f); }).length;
       var on = st.from === a && st.to === b;
       return h('button', { type: 'button', class: 'wk' + (k === 0 ? ' now' : '') + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', onclick: function () { setWeek(a); } },
         h('span', { class: 'wk-top' }, (k === 0 ? '이번 주 · ' : '') + w.w + '주차', h('span', { class: 'wk-n', text: inWeek.length }), nNew ? h('span', { class: 'wk-new', text: 'NEW ' + nNew }) : null),
@@ -120,25 +120,25 @@
   function drawSum() {
     D.set(sum, GROUPS.map(function (g) {
       var list = rows.filter(function (f) { return groupOf(f.kind) === g[0]; });
-      var nNew = list.filter(function (f) { return D.isNew(f.collected_at); }).length;
+      var nNew = list.filter(function (f) { return D.isNewItem(f); }).length;
       return h('button', { type: 'button', class: 'wk-box', 'aria-pressed': st.group === g[0] ? 'true' : 'false', onclick: function () { st.group = st.group === g[0] ? 'all' : g[0]; save(); drawTable(); drawSum(); } },
         h('span', { class: 'wk-box-label', text: g[1] }), h('b', { text: list.length }), nNew ? h('span', { class: 'badge new', text: '신규 ' + nNew }) : h('span', { class: 'note', text: '건' }));
     }));
   }
   function drawTable() {
-    var nNewAll = rows.filter(function (f) { return D.isNew(f.collected_at); }).length;
+    var nNewAll = rows.filter(function (f) { return D.isNewItem(f); }).length;
     newChip.textContent = '신규만 보기 (' + nNewAll + ')';
     D.set(tabs, [['all', '전체', rows.length]].concat(GROUPS.map(function (g) { return [g[0], g[1], rows.filter(function (f) { return groupOf(f.kind) === g[0]; }).length]; }))
       .map(function (t) {
         return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': st.group === t[0] ? 'true' : 'false', onclick: function () { st.group = t[0]; save(); drawTable(); drawSum(); } },
           t[1], h('span', { class: 'badge gray', text: t[2] }));
       }));
-    var list = rows.filter(function (f) { return (st.group === 'all' || groupOf(f.kind) === st.group) && (!st.onlyNew || D.isNew(f.collected_at)); });
+    var list = rows.filter(function (f) { return (st.group === 'all' || groupOf(f.kind) === st.group) && (!st.onlyNew || D.isNewItem(f)); });
     if (!list.length) { D.set(table, D.empty(st.q ? '"' + st.q + '" 이(가) 들어간 인허가 소식이 없습니다.' : '이 기간에는 인허가 소식이 없습니다.')); return; }
     D.set(table, h('div', { class: 'table-wrap' }, h('table', { class: 'grid permit-table' },
       h('thead', null, h('tr', null, ['날짜', '종류', '업체', '내용', '첨부', '신규', ''].map(function (x, i) { return h('th', { scope: 'col', class: i === 6 ? 'w-star' : null, text: x }); }))),
       h('tbody', null, list.map(function (f) {
-        var isNew = D.isNew(f.collected_at);
+        var isNew = D.isNewItem(f);
         var fl = (files[f.item_key] || []).filter(function (x) { return x.download_url; });
         return h('tr', { class: isNew ? 'is-new' : null },
           h('td', { class: 'nowrap num-cell-left', text: f.item_date ? md(f.item_date) + '(' + DAY[dow(f.item_date)] + ')' : '' }),
@@ -152,7 +152,7 @@
           h('td', { class: 'nowrap' }, f.url ? h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '원본 보기', text: '원문 ↗' }) : null, ' ',
             D.favButton('item', f.item_key, D.clean(f.title), { small: true })));
       })))),
-      h('p', { class: 'note', text: list.length + '건 · 날짜 최신순 · 신규 = 최근 24시간 안에 새로 수집된 것 (줄 색으로 표시)' }));
+      h('p', { class: 'note', text: list.length + '건 · 날짜 최신순 · 신규 = 출처마다 마지막 수집 이후 새로 들어온 것 (줄 색으로 표시)' }));
   }
 
   loadWeeks();

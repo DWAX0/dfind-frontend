@@ -835,3 +835,53 @@ table.kw-table tr.off td { opacity: 0.55; }
 .switch .knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: left 0.15s; }
 .switch[aria-checked="true"] { background: var(--accent); }
 .switch[aria-checked="true"] .knob { left: 23px; }
+
+/* ==== 6차: NEW 기준·기업 상세 뉴스·월별 그래프·슬라이드·로그인·사용자 ==== */
+/* 탭·메뉴에 새 정보 표시 (빨간 동그라미 N) */
+.new-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 4px; border-radius: 50%;
+  background: var(--red); color: #fff; font-size: 0.68rem; font-weight: 800; font-family: var(--f-num); vertical-align: 2px; }
+/* 통계 칸: 누르면 아래 탭으로 */
+button.kpi-cell { text-align: left; font: inherit; color: inherit; cursor: pointer; }
+button.kpi-cell:hover { border-color: var(--accent); background: var(--accent-soft); }
+/* 연도별 | 최근 12개월 그래프 나란히 */
+.chart-pair { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-top: 14px; }
+.chart-pair > * { min-width: 0; }
+@media (max-width: 1100px) { .chart-pair { grid-template-columns: minmax(0, 1fr); } }
+svg.chart .bar.s4 { fill: var(--accent); } svg.chart .bar.s5 { fill: var(--market); }
+.sw.s4 { background: var(--accent); } .sw.s5 { background: var(--market); }
+/* 기업 뉴스: 키워드 · 언론사 · 제목 · 날짜 한 줄 (넓으면 두 줄 나란히) */
+.news-mini { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); column-gap: 28px; }
+.news-mini li { display: grid; grid-template-columns: 104px 92px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: 44px;
+  padding: 6px 4px; border-bottom: 1px solid var(--line2); }
+.news-mini li.is-new { background: #FFFBEB; }
+.news-mini .kw-pill { display: inline-block; max-width: 100%; padding: 1px 10px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line);
+  font-size: 0.82rem; font-weight: 600; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.news-mini .nm-pub { color: var(--muted); font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.news-mini .nm-title { color: var(--ink); text-decoration: none; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.news-mini .nm-title:hover { color: var(--accent-ink); text-decoration: underline; }
+.news-mini .nm-date { color: var(--muted); font-family: var(--f-num); font-size: 0.86rem; white-space: nowrap; }
+@media (max-width: 700px) { .news-mini { grid-template-columns: minmax(0, 1fr); } .news-mini li { grid-template-columns: minmax(0, 1fr) auto; }
+  .news-mini .nm-kw, .news-mini .nm-pub { display: none; } }
+.drawer:not(.full) .news-mini { grid-template-columns: minmax(0, 1fr); }
+/* 오른쪽 패널: 혁신의료기기 한 장씩 넘기기 */
+.innov-slider .slider-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; border-radius: 12px; }
+.innov-slider .slider-track::-webkit-scrollbar { display: none; }
+.innov-slider .slide { flex: 0 0 100%; scroll-snap-align: start; display: flex; }
+.innov-slider .slide .innov-card { flex: 1; }
+.innov-slider .slider-count { font-family: var(--f-num); font-weight: 700; color: var(--muted); }
+.innov-slider .slider-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.innov-slider .dot { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--line); cursor: pointer; }
+.innov-slider .dot[aria-current="true"] { background: var(--accent); width: 22px; border-radius: 5px; }
+/* 로그인 */
+.login-form { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.btn.block { width: 100%; justify-content: center; min-height: 48px; font-size: 1.05rem; }
+.login-help { margin: 0; }
+/* 관리: 사용자 추가 · 언론사 이름 */
+.add-box { border: 1px solid var(--line); border-radius: 12px; background: var(--sunk); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.input.small { min-height: 36px; padding: 4px 10px; font-size: 0.95rem; }
+.users-table td { vertical-align: middle; }
+.users-table .input.small { min-width: 120px; }
+.sub-h { font-size: 1.02rem; margin: 18px 0 8px; }
+.pub-all { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; background: var(--card); }
+.pub-all > summary { cursor: pointer; font-weight: 700; min-height: 36px; display: flex; align-items: center; }
+.pub-all[open] > summary { margin-bottom: 10px; }

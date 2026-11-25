@@ -93,7 +93,17 @@
     var d = new Date(new Date(ts).getTime() + 9 * 3600e3);
     return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
   };
-  D.isNew = function (ts) { return ts && Date.now() - new Date(ts).getTime() < 24 * 3600e3; };
+  /* NEW = 그 출처의 마지막 수집(한 번 돌 때 묶음)이 시작된 뒤 처음 저장된 정보.
+     수집 기록이 없으면 어제 0시(한국 시간) 이후. D.newSince 는 D.boot 에서 dash_new_since 로 채움 */
+  var NEW_SRC = { naver: 'news', rss: 'news' };
+  D.newSince = {};
+  D.newSinceOf = function (origin) {
+    var t = D.newSince[NEW_SRC[origin] || origin];
+    return t ? new Date(t).getTime() : new Date(D.addDays(D.today(), -1) + 'T00:00:00+09:00').getTime();
+  };
+  D.isNew = function (ts, origin) { return !!ts && new Date(ts).getTime() >= D.newSinceOf(origin); };
+  D.isNewItem = function (f) { return !!f && D.isNew(f.collected_at, f.origin); };
+  D.newDot = function (label) { return D.h('span', { class: 'new-dot', title: label || '새로 들어온 정보가 있습니다', text: 'N' }); };
   D.num = function (n) { return Number(n || 0).toLocaleString('ko-KR'); };
 
   // ---- 분류 --------------------------------------------------------------
@@ -120,7 +130,7 @@
     return D.h('div', { class: 'list-item' },
       D.h('div', { class: 'list-meta' },
         D.catBadge(f.category, f.kind),
-        D.isNew(f.collected_at) ? D.badge('NEW', 'new') : null,
+        D.isNewItem(f) ? D.badge('NEW', 'new') : null,
         D.companyLink(f.company_id, f.company_name),
         D.h('span', { text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') }),
         o.noStar ? null : D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })),
@@ -305,7 +315,7 @@
           D.svg('M3 6h18v12H3zM3 6l9 7 9-7', 18), '메일 리포트 전송') : null,
         D.h('button', { type: 'button', class: 'btn small', id: 'font-toggle', onclick: toggleFont }),
         D.user ? D.h('span', { class: 'gnb-user' }, D.svg('M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 18),
-          D.h('span', { class: 'gnb-email', text: D.user.email }), role ? D.badge(ROLE[role] || role, role === 'admin' ? 'bad' : 'gray') : null) : null,
+          D.h('span', { class: 'gnb-email', title: D.user.email, text: D.userName ? D.userName + ' (' + D.user.email + ')' : D.user.email }), role ? D.badge(ROLE[role] || role, role === 'admin' ? 'bad' : 'gray') : null) : null,
         D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null));
     setFontLabel();
   }
@@ -433,6 +443,14 @@
     var roleRow = null;
     try { roleRow = await D.q(D.sb.from('user_roles').select('role').eq('user_id', s.user.id).maybeSingle()); } catch (e) { roleRow = null; }
     D.role = roleRow && roleRow.role;
+    // 첫 로그인·비밀번호 초기화 뒤에는 비밀번호부터 바꾸게 함
+    var prof = null;
+    try { prof = await D.q(D.sb.from('user_profiles').select('display_name,must_change_password').eq('user_id', s.user.id).maybeSingle()); } catch (e) { prof = null; }
+    if (prof && prof.must_change_password) { location.replace(D.root + 'login.html?change=1'); return null; }
+    D.userName = prof && prof.display_name;
+    if (D.role) {
+      try { (await D.rpc('dash_new_since')).forEach(function (r) { D.newSince[r.source_system] = r.since; }); } catch (e) { console.error(e); }
+    }
     renderNav(page, D.role);
     if (!D.role) {
       D.set(main, D.h('p', { class: 'notice error', text: '이 계정에는 아직 권한이 없습니다. 관리자에게 권한을 요청해 주세요. (' + s.user.email + ')' }));
