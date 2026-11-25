@@ -269,7 +269,9 @@
     setFontLabel();
   }
 
-  /* 관리자: 메일 리포트 전송 (보낼 내용·받는 사람 확인 → 전송). 실제 발송은 메일 발송 단계에서 연결 */
+  /* 관리자: 메일 리포트 전송 — 내용 확인 → [나에게 시험 발송] / [수신자 전체에게 보내기]
+     요청은 mail_requests 에 남고 GitHub 작업 mail-send 가 보냄 (Supabase Vault 설정 시 바로, 아니면 다음 실행 때) */
+  var REQ_ST = { requested: ['대기', 'warn'], dispatched: ['보내는 중', 'warn'], sent: ['보냄', 'ok'], failed: ['실패', 'bad'], skipped: ['건너뜀', 'gray'] };
   async function openMailDialog() {
     var day = D.today();
     var body = D.h('div', { class: 'dialog-body' }, D.loading());
@@ -280,9 +282,34 @@
     dlg.addEventListener('close', function () { dlg.remove(); });
     document.body.appendChild(dlg);
     dlg.showModal();
+    var msg = D.h('p', { role: 'status', class: 'note' });
+    var hist = D.h('div');
+    async function drawHistory() {
+      try {
+        var rows = await D.q(D.sb.from('mail_requests').select('request_id,mail_date,mail_kind,status,message,requested_at,processed_at').order('requested_at', { ascending: false }).limit(5));
+        D.set(hist, rows.length ? D.h('table', { class: 'grid' },
+          D.h('thead', null, D.h('tr', null, ['요청 시각', '날짜', '종류', '상태', '결과'].map(function (x) { return D.h('th', { text: x }); }))),
+          D.h('tbody', null, rows.map(function (r) {
+            var st = REQ_ST[r.status] || [r.status, 'gray'];
+            return D.h('tr', null, D.h('td', { class: 'nowrap', text: D.fmtTime(r.requested_at) }), D.h('td', { class: 'nowrap', text: D.fmt(r.mail_date) }),
+              D.h('td', { text: r.mail_kind === 'test' ? '시험(나에게)' : '수신자 전체' }), D.h('td', null, D.badge(st[0], st[1])), D.h('td', { text: r.message || '' }));
+          }))) : D.h('p', { class: 'note', text: '아직 보낸 기록이 없습니다.' }));
+      } catch (e) { D.set(hist, D.fail(e)); }
+    }
+    async function request(testTo) {
+      if (!testTo && !window.confirm('수신자 전체에게 ' + D.fmtLong(day) + ' 메일을 보낼까요?')) return;
+      msg.textContent = '요청하는 중…';
+      try {
+        var r = await D.rpc('admin_request_mail', { p_date: day, p_test_to: testTo || null });
+        msg.textContent = r && r.dispatched
+          ? '보내는 중입니다. 1~2분 뒤 아래 기록에서 결과를 확인하세요. (새로 고침 버튼)'
+          : '요청을 남겼습니다. 바로 보내려면 GitHub › Actions › mail-send › Run workflow 를 누르세요 (값은 비워 두면 요청을 처리). 자동 연결은 안내서의 Vault 설정 후 됩니다.';
+      } catch (e) { msg.textContent = '요청하지 못했습니다: ' + (e.message || e); }
+      drawHistory();
+    }
     var res = await Promise.all([
       D.q(D.sb.from('daily_summaries').select('conclusions,model,status').eq('kind', 'daily').eq('summary_date', day).maybeSingle()).catch(function () { return null; }),
-      D.q(D.sb.from('mail_recipients').select('recipient_id', { count: 'exact' }).eq('is_active', true).eq('receive_daily', true)).catch(function () { return []; })
+      D.q(D.sb.from('mail_recipients').select('recipient_id').eq('is_active', true).eq('receive_daily', true)).catch(function () { return []; })
     ]);
     var sum = res[0], n = (res[1] || []).length;
     D.set(body,
@@ -290,10 +317,15 @@
         D.h('dt', { text: '받는 사람' }), D.h('dd', null, n + '명 ', D.h('a', { href: D.root + 'admin-recipients.html', text: '수신자 관리' }))),
       D.h('h3', { text: '본문 첫 단락 (오늘의 결론)' }),
       sum && (sum.conclusions || []).length ? D.h('ol', { class: 'dialog-list' }, sum.conclusions.map(function (c) { return D.h('li', { text: c.text }); }))
-        : D.h('p', { class: 'notice', text: '오늘 요약이 아직 없습니다. SUMMARY 화면에서 [요약 만들기]를 먼저 눌러 주세요.' }),
-      D.h('p', { class: 'notice info', text: '메일 발송(보내는 메일 계정 연결)은 다음 단계에서 붙입니다. 연결되면 이 버튼으로 바로 보냅니다.' }),
-      D.h('div', { class: 'chips' }, D.h('button', { type: 'button', class: 'btn primary', disabled: true, text: '지금 보내기 (준비 중)' }),
-        D.h('button', { type: 'button', class: 'btn', text: '닫기', onclick: function () { dlg.close(); } })));
+        : D.h('p', { class: 'notice', text: '오늘 결론이 아직 없습니다. 이대로 보내면 규칙 방식 결론이 자동으로 들어갑니다. (먼저 오늘의 결론 입력을 하셔도 됩니다)' }),
+      D.h('p', { class: 'note', text: '메일에는 결론 · 주목 기업 TOP 5 · 분야별 새 소식이 들어갑니다. 네이버 검색 기사는 약관 때문에 넣지 않습니다. 같은 날짜는 한 번만 보냅니다.' }),
+      D.h('div', { class: 'chips' },
+        D.h('button', { type: 'button', class: 'btn', onclick: function () { request(D.user.email); } }, '나에게 시험 발송'),
+        D.h('button', { type: 'button', class: 'btn primary', disabled: !n, onclick: function () { request(null); } }, '수신자 전체에게 보내기')),
+      msg,
+      D.h('div', { class: 'card-head' }, D.h('h3', { text: '최근 보내기 기록' }), D.h('button', { type: 'button', class: 'btn small right', text: '새로 고침', onclick: drawHistory })),
+      hist);
+    drawHistory();
   }
   async function loadCrawlHealth() {
     try {
