@@ -88,14 +88,17 @@
     var right = o.groupable ? h('button', { type: 'button', class: 'btn', 'aria-pressed': 'true', id: 'group-btn',
       onclick: function (e) { ctx.group = !ctx.group; e.currentTarget.setAttribute('aria-pressed', ctx.group ? 'true' : 'false');
         e.currentTarget.textContent = '같은 사건 묶기: ' + (ctx.group ? '켜짐' : '꺼짐'); drawList(); } }, '같은 사건 묶기: 켜짐') : null;
-    D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + o.category, right: right }),
+    D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + (o.dot || o.category), right: right }),
       o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, panel.el, tiles, listCard);
     panel.start();
 
     async function load(r) {
       ctx.q = r.q; ctx.kind = r.kind; ctx.shown = 60; ctx.files = {};
       D.set(tiles, D.loading()); D.set(listCard, D.loading());
-      try { ctx.rows = await D.rpc('dash_feed', { p_from: r.from, p_to: r.to, p_category: o.category, p_limit: 2000, p_query: r.q || null }); }
+      try {
+        ctx.rows = await D.rpc('dash_feed', { p_from: r.from, p_to: r.to, p_category: o.category || null, p_limit: 2000, p_query: r.q || null });
+        if (o.only) ctx.rows = ctx.rows.filter(o.only);   // 예: 뉴스만 / 뉴스 빼고
+      }
       catch (e) { D.set(tiles); D.set(listCard, D.fail(e)); return; }
       drawTiles(); drawList();
       ctx.files = await D.loadFiles(ctx.rows);

@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var h = D.h;
-  var KINDS = ['투자', '병원 협력', '전시·해외', '뉴스'];
+  var KINDS = ['투자', '병원 협력', '전시·해외', 'R&D 과제', '논문·연구', '뉴스'];
 
   function titleCell(g, q) {
     var f = g.f;
@@ -42,7 +42,7 @@
       h('div', { class: 'lead-list' }, top.map(function (g, i) {
         var f = g.f;
         return h('article', { class: 'lead-item' + (i === 0 ? ' first' : '') },
-          h('div', { class: 'list-meta' }, D.catBadge('market', f.kind), D.isNew(f.collected_at) ? D.badge('NEW', 'new') : null,
+          h('div', { class: 'list-meta' }, D.catBadge(f.category, f.kind), D.isNew(f.collected_at) ? D.badge('NEW', 'new') : null,
             ctx.kw ? D.keywordChips(kwOf(ctx, g), 3) : null,
             D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })),
           h('a', { class: 'lead-title', href: D.itemHref(f.item_key), text: D.clean(f.title) }),
@@ -54,11 +54,12 @@
   }
 
   D.categoryPage({
-    page: 'market', category: 'market', title: '시장·투자 동향', defaultPer: '7', groupable: true,
-    sub: '뉴스 · 투자 · 병원 협력 · 전시 소식 (기사 날짜 기준) · 같은 사건은 한 줄로 묶음',
+    page: 'market', category: null, dot: 'market', title: '뉴스', defaultPer: '7', groupable: true,
+    only: function (f) { return /^news:/.test(f.item_key); },
+    sub: '수집한 기사 전체 — 투자 · 병원 협력 · 전시 · R&D · 논문 · 업계 뉴스 (기사 날짜 기준) · 같은 사건은 한 줄로 묶음',
     notice: '네이버 검색 기사는 이용 약관에 따라 20일이 지나면 자동으로 지워집니다. 기사 본문은 저작권 때문에 원본 사이트에서 봅니다.',
     kinds: KINDS,
-    kindNotes: { '투자': '네이버 투자 검색', '병원 협력': '네이버 병원 검색', '전시·해외': '네이버 전시 검색', '뉴스': '언론사 RSS 등' },
+    kindNotes: { '투자': '네이버 투자 검색', '병원 협력': '네이버 병원 검색', '전시·해외': '네이버 전시 검색', 'R&D 과제': '네이버 R&D 검색', '논문·연구': '논문 관련 기사', '뉴스': '언론사 RSS 등' },
     searchHint: '기업·제목·기사 요약', emptyText: '이 기간에 시장·투자 소식이 없습니다.',
     renderList: function (card, groups, ctx, api) {
       card.className = 'card';

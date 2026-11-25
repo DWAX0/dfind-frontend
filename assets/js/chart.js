@@ -60,6 +60,49 @@
     svg.addEventListener('mouseleave', hide);
     return box;
   };
+  /* 묶음 막대 (연도별 허가·지정·임상): 칸마다 막대 여러 개, 막대 사이 2px, 위쪽만 둥글게, 마우스를 올리면 그 칸 값 모두 */
+  D.barChart = function (o) {
+    var W = o.width || 640, H = o.height || 230, L = 34, R = 10, T = 14, B = 30;
+    var max = nice(Math.max.apply(null, [1].concat(o.series.map(function (x) { return Math.max.apply(null, x.values); }))));
+    var n = o.labels.length, k = o.series.length;
+    var band = (W - L - R) / n, inner = band * 0.72, bw = Math.max(4, (inner - (k - 1) * 2) / k);
+    var ys = function (v) { return T + (H - T - B) * (1 - v / max); };
+    var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'chart', role: 'img', 'aria-label': o.title || '' });
+    [0, 0.5, 1].forEach(function (f) {
+      var y = ys(max * f);
+      svg.appendChild(s('line', { x1: L, x2: W - R, y1: y, y2: y, class: f === 0 ? 'axis' : 'gridline' }));
+      var t = s('text', { x: L - 6, y: y + 4, class: 'tick', 'text-anchor': 'end' }); t.textContent = Math.round(max * f); svg.appendChild(t);
+    });
+    var hover = s('rect', { y: T, height: H - T - B, width: band, class: 'band', visibility: 'hidden' });
+    svg.appendChild(hover);
+    o.labels.forEach(function (lb, i) {
+      var x0 = L + i * band + (band - (k * bw + (k - 1) * 2)) / 2;
+      o.series.forEach(function (sr, j) {
+        var v = sr.values[i], y = ys(v), hgt = Math.max(0, H - B - y);
+        if (v > 0) {
+          var r = Math.min(4, bw / 2, hgt);
+          var x = x0 + j * (bw + 2);
+          svg.appendChild(s('path', { class: 'bar ' + sr.cls,
+            d: 'M' + x + ',' + (H - B) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + bw - r) + 'Q' + (x + bw) + ',' + y + ' ' + (x + bw) + ',' + (y + r) + 'V' + (H - B) + 'Z' }));
+        }
+      });
+      var t = s('text', { x: L + i * band + band / 2, y: H - 10, class: 'tick', 'text-anchor': 'middle' }); t.textContent = lb; svg.appendChild(t);
+    });
+    var tip = D.h('div', { class: 'chart-tip', hidden: true });
+    svg.addEventListener('mousemove', function (e) {
+      var r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W;
+      var i = Math.floor((x - L) / band);
+      if (i < 0 || i >= n) { hover.setAttribute('visibility', 'hidden'); tip.hidden = true; return; }
+      hover.setAttribute('x', L + i * band); hover.setAttribute('visibility', 'visible');
+      D.set(tip, D.h('b', { text: o.labels[i] }), o.series.map(function (sr) { return D.h('span', null, D.h('i', { class: 'sw ' + sr.cls }), sr.name + ' ' + sr.values[i] + (o.unit || '')); }));
+      tip.hidden = false;
+      tip.style.left = Math.min(Math.max((L + i * band + band / 2) / W * 100, 15), 85) + '%';
+    });
+    svg.addEventListener('mouseleave', function () { hover.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+    return D.h('figure', { class: 'chart-box' }, o.title ? D.h('figcaption', { class: 'chart-title', text: o.title }) : null,
+      D.h('div', { class: 'chart-area' }, svg, tip),
+      D.h('div', { class: 'legend' }, o.series.map(function (sr) { return D.h('span', null, D.h('i', { class: 'sw ' + sr.cls }), sr.name + ' ' + sr.values.reduce(function (a, b) { return a + b; }, 0) + (o.unit || '')); })));
+  };
   /* 작은 막대 (KPI 칸 안): 값 목록 → 높이 */
   D.miniBars = function (values, labels, fixedMax) {
     var max = fixedMax || Math.max.apply(null, [1].concat(values));

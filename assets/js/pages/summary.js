@@ -152,7 +152,8 @@
     var n = {};
     rc.v.forEach(function (x) { n[x.kind] = (n[x.kind] || 0) + Number(x.item_count); });
     D.set(kindTiles, head, h('div', { class: 'kind-grid' }, KINDS.map(function (k) {
-      return h('a', { class: 'kind-chip' + (n[k[0]] ? ' has' : ''), href: D.CAT[k[1]].page + '?' + q + '&kind=' + encodeURIComponent(k[0]) },
+      var page = ['R&D 과제', '논문·연구', '투자', '병원 협력', '전시·해외'].indexOf(k[0]) >= 0 ? 'market.html' : D.CAT[k[1]].page;  // 기사에서 온 종류는 뉴스 화면
+      return h('a', { class: 'kind-chip' + (n[k[0]] ? ' has' : ''), href: page + '?' + q + '&kind=' + encodeURIComponent(k[0]) },
         h('span', { class: 'dot dot-' + k[1] }), h('span', { class: 'kind-name', text: k[2] || k[0] }), h('b', { text: D.num(n[k[0]] || 0) }));
     })));
   }

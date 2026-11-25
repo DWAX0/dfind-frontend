@@ -99,7 +99,7 @@
   // ---- 분류 --------------------------------------------------------------
   D.CAT = {
     permit: { label: '인허가·제도', page: 'regulatory.html' },
-    market: { label: '시장·투자', page: 'market.html' },
+    market: { label: '뉴스', page: 'market.html' },
     research: { label: '연구·과제', page: 'research.html' },
     disclosure: { label: '공시', page: 'disclosure.html' }
   };
@@ -247,8 +247,9 @@
   var MENU = [
     { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum], ['scrap', '내 스크랩', 'scrap.html', I.star]] },
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
-    { label: '분야별 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit], ['market', '시장·투자 동향', 'market.html', I.market],
+    { label: '분야별 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit],
       ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc]] },
+    { label: '신규 기사', items: [['market', '뉴스', 'market.html', I.market]] },
     { label: '기록·운영', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['status', '수집 현황', 'status.html', I.status]] },
     { label: '관리자', admin: true, items: [['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen], ['recipients', '메일 수신자', 'admin-recipients.html', I.users],
       ['settings', '기준 정보', 'admin-settings.html', I.gear], ['logs', '로그 관리', 'admin-logs.html', I.log]] }
