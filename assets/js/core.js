@@ -140,6 +140,29 @@
     return by;
   };
 
+  // ---- 뉴스 키워드 (어떤 키워드로 수집·매칭됐는지) ----------------------------
+  D.loadNewsKeywords = async function (rows) {
+    var keys = rows.map(function (f) { return f.item_key; }).filter(function (k) { return /^news:/.test(k); });
+    var by = {};
+    if (!keys.length) return by;
+    try {
+      (await D.rpc('dash_news_keywords', { p_keys: keys })).forEach(function (x) { (by[x.item_key] = by[x.item_key] || []).push(x); });
+    } catch (e) { console.error(e); }
+    return by;
+  };
+  /* 키워드 표시: 네이버 검색어로 들어온 것(진하게) 먼저, 제목·본문에서 발견된 것은 옅게. 신호어(투자 등)는 다른 게 없을 때만 */
+  D.keywordChips = function (list, max) {
+    list = (list || []).slice();
+    var main = list.filter(function (k) { return k.keyword_category !== 'signal'; });
+    if (main.length) list = main;
+    list.sort(function (a, b) { return (a.how === 'search' ? 0 : 1) - (b.how === 'search' ? 0 : 1); });
+    var n = max || 4;
+    if (!list.length) return D.h('span', { class: 'note', text: '–' });
+    return D.h('span', { class: 'kw-chips' }, list.slice(0, n).map(function (k) {
+      return D.h('span', { class: 'kw' + (k.how === 'search' ? ' kw-search' : ''), title: k.how === 'search' ? '이 키워드로 네이버 검색해서 수집' : '제목·요약·본문에서 발견', text: k.keyword });
+    }), list.length > n ? D.h('span', { class: 'note', text: '+' + (list.length - n) }) : null);
+  };
+
   // ---- 내 스크랩 (관심 기업·관심 정보, 계정별. 관리자는 DB 에서 남의 것도 읽을 수 있어 항상 내 것만 고름) ----
   var favs = null, favWait = null;
   D.favs = function () {

@@ -247,6 +247,13 @@
     return h('div', { class: 'att' + (a.parent_attachment_id ? ' child' : '') }, kids);
   }
 
+  // 뉴스: 어떤 키워드로 수집·매칭됐는지
+  var kwLine = h('p', { class: 'sub kw-line' });
+  if (/^news:/.test(key)) D.loadNewsKeywords([{ item_key: key }]).then(function (by) {
+    var list = by[key] || [];
+    D.set(kwLine, '키워드: ', list.length ? D.keywordChips(list, 10) : '없음',
+      list.some(function (k) { return k.how === 'search'; }) ? h('span', { class: 'note', text: ' (진한 칸 = 이 키워드로 검색해서 수집)' }) : null);
+  });
   var fields = (it.fields || []).filter(function (f) { return f.value !== null && f.value !== ''; });
   var body = it.body && it.body.trim() ? dedupeBody(it.body) : '';
   var atts = it.attachments || [];
@@ -257,6 +264,7 @@
         D.favButton('item', key, D.clean(it.title), { text: true, right: true })),
       h('h1', { class: 'item-title', text: D.clean(it.title) || '(제목 없음)' }),
       it.company && it.company.name ? h('p', { class: 'sub' }, '기업: ', D.companyLink(it.company.id, it.company.name)) : null,
+      /^news:/.test(key) ? kwLine : null,
       body ? h('div', { class: 'doc-body', text: body }) : null,
       fields.length ? h('dl', { class: 'info item-fields' }, fields.map(function (f) { return [h('dt', { text: f.label }), h('dd', { text: String(f.value) })]; })) : null,
       it.note ? h('p', { class: 'notice info', text: it.note }) : null),

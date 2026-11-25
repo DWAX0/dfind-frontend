@@ -518,3 +518,9 @@ td.err-cell { color: var(--red); font-size: 0.88rem; max-width: 320px; }
   .archive-list { position: static; max-height: none; }
   ol.steps.one-row.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* 뉴스 키워드 */
+.kw-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.kw { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; font-size: 0.85rem; white-space: nowrap; }
+.kw.kw-search { border-color: #0a7a5c; background: #e6f6f0; color: #075e47; font-weight: 700; }
+.w-kw { width: 260px; }
+.kw-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

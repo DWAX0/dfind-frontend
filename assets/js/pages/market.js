@@ -5,22 +5,29 @@
   var h = D.h;
   var KINDS = ['투자', '병원 협력', '전시·해외', '뉴스'];
 
-  function titleCell(f, q) {
+  function titleCell(g, q) {
+    var f = g.f;
     return h('td', { class: 'news-title' },
       h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' }),
       D.isNew(f.collected_at) ? D.badge('NEW', 'new') : null,
       D.foundInside(f, q) ? D.badge('본문에서 찾음', 'warn') : null,
-      f.company_name ? h('span', { class: 'list-meta' }, D.companyLink(f.company_id, f.company_name)) : null);
+      f.company_name || g.dups.length ? h('span', { class: 'list-meta' }, D.companyLink(f.company_id, f.company_name),
+        g.dups.length ? h('span', { class: 'note', text: '같은 소식 ' + (g.dups.length + 1) + '건' }) : null) : null);
+  }
+  function kwOf(ctx, g) {
+    var all = [];
+    [g.f].concat(g.dups).forEach(function (f) { (ctx.kw[f.item_key] || []).forEach(function (k) { if (!all.some(function (x) { return x.keyword === k.keyword; })) all.push(k); }); });
+    return all;
   }
   function table(groups, ctx, opts) {
     var o = opts || {};
     return h('div', { class: 'table-wrap' }, h('table', { class: 'grid news-table' },
-      h('thead', null, h('tr', null, h('th', { scope: 'col', text: '제목' }), h('th', { scope: 'col', class: 'w-kind', text: '구분' }),
+      h('thead', null, h('tr', null, h('th', { scope: 'col', text: '제목' }), h('th', { scope: 'col', class: 'w-kw', text: '키워드' }),
         h('th', { scope: 'col', class: 'w-pub', text: '언론사' }), h('th', { scope: 'col', class: 'w-date', text: '게재일' }), h('th', { scope: 'col', class: 'w-star' }, h('span', { class: 'sr', text: '스크랩' })))),
       h('tbody', null, groups.map(function (g) {
         var f = g.f;
-        return h('tr', null, titleCell(f, ctx.q),
-          h('td', null, D.catBadge('market', f.kind), g.dups.length ? h('span', { class: 'note block', text: '같은 소식 ' + (g.dups.length + 1) + '건' }) : null),
+        return h('tr', null, titleCell(g, ctx.q),
+          h('td', null, ctx.kw ? D.keywordChips(kwOf(ctx, g), 3) : h('span', { class: 'note', text: '…' })),
           h('td', { text: f.source_label || '' }),
           h('td', { class: 'nowrap', text: D.fmt(f.item_date) }),
           h('td', null, D.favButton('item', f.item_key, D.clean(f.title), { small: true })));
@@ -36,6 +43,7 @@
         var f = g.f;
         return h('article', { class: 'lead-item' + (i === 0 ? ' first' : '') },
           h('div', { class: 'list-meta' }, D.catBadge('market', f.kind), D.isNew(f.collected_at) ? D.badge('NEW', 'new') : null,
+            ctx.kw ? D.keywordChips(kwOf(ctx, g), 3) : null,
             D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })),
           h('a', { class: 'lead-title', href: D.itemHref(f.item_key), text: D.clean(f.title) }),
           f.detail ? h('p', { class: 'lead-summary', text: D.clean(f.detail).slice(0, i === 0 ? 260 : 140) }) : null,
@@ -54,6 +62,12 @@
     searchHint: '기업·제목·기사 요약', emptyText: '이 기간에 시장·투자 소식이 없습니다.',
     renderList: function (card, groups, ctx, api) {
       card.className = 'card';
+      // 키워드는 목록을 새로 불러올 때마다 한 번 (다 오면 다시 그림)
+      if (ctx.kwRows !== ctx.rows) {
+        ctx.kwRows = ctx.rows; ctx.kw = null;
+        var rows = ctx.rows;
+        D.loadNewsKeywords(rows).then(function (by) { if (ctx.kwRows === rows) { ctx.kw = by; api.redraw(); } });
+      }
       if (!groups.length) {
         D.set(card, h('h2', { id: 'list-h', text: '뉴스' }), D.empty(ctx.q ? '"' + ctx.q + '" 이(가) 들어간 기사가 없습니다.' : '이 기간에 시장·투자 소식이 없습니다.'));
         return;
