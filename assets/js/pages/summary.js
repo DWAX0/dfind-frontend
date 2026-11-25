@@ -44,7 +44,7 @@
       settle(D.rpc('dash_feed', { p_from: D.addDays(d, -27), p_to: d, p_category: null, p_limit: 2000 })),
       settle(D.rpc('dash_feed', { p_from: feedFrom, p_to: d, p_category: null, p_limit: 600 }))
     ]);
-    drawConclusions(res[1], single);
+    drawConclusions(res[1], single, d, r);
     drawTiles(res[0], res[2], '?per=range&from=' + feedFrom + '&to=' + d);
     drawSense(res[3], d);
     drawTop(res[2]);
@@ -69,19 +69,41 @@
       return h('li', null, h('span', { class: 'num', text: i + 1 }), h('span', null, c.text, h('br'), refLinks(c.refs)));
     }));
   }
-  function drawConclusions(r, single) {
+  /* 관리자: 수집이 끝난 뒤 '요약 만들기' (1단계: 규칙 방식, 비용 없음). 2단계에서 Claude API 로 바뀜 */
+  function makeButton(d, row, range) {
+    if (D.role !== 'admin') return null;
+    var label = row ? '요약 다시 만들기' : '요약 만들기';
+    var msg = h('span', { class: 'note', role: 'status' });
+    var btn = h('button', { type: 'button', class: 'btn primary small', onclick: async function () {
+      var force = false;
+      if (row && row.model === 'claude-app') {
+        if (!window.confirm('담당자가 직접 입력한 결론이 있습니다. 규칙 요약으로 바꿀까요?')) return;
+        force = true;
+      }
+      btn.disabled = true; msg.textContent = '만드는 중…';
+      try {
+        var r = await D.rpc('admin_make_summary', { p_date: d, p_force: force });
+        msg.textContent = r && r.status === 'kept' ? '직접 입력한 결론이 있어 그대로 두었습니다.' : '만들었습니다.';
+        load(range);
+      } catch (e) { msg.textContent = '만들지 못했습니다: ' + (e.message || e); btn.disabled = false; }
+    } }, D.svg('M4 4v6h6M20 20v-6h-6M5 15a7 7 0 0 0 12 3M19 9a7 7 0 0 0-12-3', 18), label);
+    return h('span', { class: 'chips right' }, msg, btn);
+  }
+  function drawConclusions(r, single, d, range) {
     var head = h('div', { class: 'card-head' }, h('h2', { id: 'concl-h', text: single ? '오늘의 결론' : '기간 동안의 결론 (날짜별)' }),
       single ? D.badge('메일 본문 첫 단락', 'ok') : null,
       h('span', { class: 'note', id: 'concl-how' }));
+    var mk = single && r.ok ? makeButton(d, r.v[0], range) : null;
+    if (mk) head.appendChild(mk);
     if (!r.ok) { D.set(concl, head, D.fail(r.e)); return; }
     var rows = r.v;
     var m = rows[0] && rows[0].model;
     var how = m === 'claude-app' ? '담당자가 Claude 앱으로 수집 결과를 정리해 입력 · 네이버 검색 기사는 약관에 따라 제외'
       : m && m !== 'rule-based' ? 'Claude 가 수집 결과를 읽고 정리 · 네이버 검색 기사는 약관에 따라 제외'
       : '수집 결과를 규칙에 따라 자동 정리 (혁신 지정 → 임상 승인 → 투자 → 허가 순)' + (D.role === 'admin' ? ' · 관리자 › 오늘의 결론 입력에서 바꿀 수 있음' : '');
-    head.lastChild.textContent = how;
+    head.querySelector('#concl-how').textContent = how;
     if (!rows.length) {
-      D.set(concl, head, D.empty(single ? '이날 요약이 아직 없습니다. 매일 오전 9시 수집이 끝나면 자동으로 만들어집니다.' : '이 기간에 만들어진 요약이 없습니다.'));
+      D.set(concl, head, D.empty(single ? '이날 요약이 아직 없습니다. 수집이 끝난 뒤 관리자가 \'요약 만들기\'를 누르면 만들어집니다.' : '이 기간에 만들어진 요약이 없습니다.'));
       return;
     }
     if (single) {

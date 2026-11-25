@@ -57,7 +57,7 @@
   D.fail = function (err) {
     var msg = (err && (err.message || err.error_description)) || String(err);
     if (/function .* does not exist|Could not find the function/i.test(msg)) {
-      msg = 'DB 업데이트가 필요합니다. Supabase SQL Editor 에서 migrations/20261124_dashboard.sql 을 실행해 주세요.';
+      msg = 'DB 업데이트가 필요합니다. Supabase SQL Editor 에서 migrations/20261125_dashboard_v2.sql 을 실행해 주세요.';
     }
     console.error(err);
     return D.h('p', { class: 'notice error', role: 'alert', text: '불러오지 못했습니다: ' + msg });
@@ -101,18 +101,89 @@
   /* 정보 한 줄 (dash_feed 행) */
   D.feedItem = function (f, opts) {
     var o = opts || {};
-    // 제목 → 대시보드 안 자세히 보기, 옆에 원본 보기
+    // 제목 → 대시보드 안 자세히 보기, 옆에 원본 보기 · 첨부는 원본 사이트에서 바로 받기
     var title = D.h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' });
+    var files = (o.files || []).filter(function (x) { return x.download_url; });
     return D.h('div', { class: 'list-item' },
       D.h('div', { class: 'list-meta' },
-        D.catBadge(f.category, o.kindOnly ? f.kind : f.kind),
+        D.catBadge(f.category, f.kind),
         D.isNew(f.collected_at) ? D.badge('NEW', 'new') : null,
         D.companyLink(f.company_id, f.company_name),
-        D.h('span', { text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') })),
+        D.h('span', { text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') }),
+        o.noStar ? null : D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })),
       title,
       f.detail && !o.noDetail ? D.h('span', { class: 'list-detail', text: D.clean(f.detail).slice(0, 220) }) : null,
+      files.length ? D.h('span', { class: 'list-files' }, files.map(function (x) { return D.fileLink(x); })) : null,
       D.h('span', { class: 'list-links' }, D.h('a', { href: D.itemHref(f.item_key), text: '내용 보기' }),
         f.url ? D.h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer', text: '원본 보기' }) : null));
+  };
+  /* 첨부 '원본 내려받기' (원본 사이트 주소) */
+  D.fileLink = function (x) {
+    var ext = ((x.file_name || '').split('.').pop() || '').toUpperCase();
+    return D.h('a', { class: 'file-link', href: x.download_url, target: '_blank', rel: 'noopener noreferrer', title: '원본 내려받기: ' + x.file_name },
+      D.svg('M12 4v11M7 10l5 5 5-5M5 20h14', 18), D.h('span', { class: 'file-ext', text: ext.slice(0, 4) }), D.h('span', { class: 'file-name', text: x.file_name }));
+  };
+  /* 목록에 보이는 정보들의 첨부파일 한 번에 (게시글·혁신 지정 공고만 있음) */
+  D.loadFiles = async function (rows) {
+    var keys = rows.map(function (f) { return f.item_key; }).filter(function (k) { return /^(emedi_post|mfds_post|neca_post|mfds_innov):/.test(k); });
+    var by = {};
+    if (!keys.length) return by;
+    try {
+      (await D.rpc('dash_files', { p_keys: keys })).forEach(function (x) { (by[x.item_key] = by[x.item_key] || []).push(x); });
+    } catch (e) { console.error(e); }
+    return by;
+  };
+
+  // ---- 내 스크랩 (관심 기업·관심 정보, 계정별. 관리자는 DB 에서 남의 것도 읽을 수 있어 항상 내 것만 고름) ----
+  var favs = null, favWait = null;
+  D.favs = function () {
+    if (favs) return Promise.resolve(favs);
+    if (!favWait) {
+      favWait = D.q(D.sb.from('user_favorites').select('favorite_id,target_type,target_key,title,note,created_at').eq('user_id', D.user.id).order('created_at', { ascending: false }))
+        .then(function (rows) { favs = rows; return rows; }, function (e) { console.error(e); favs = []; return favs; });
+    }
+    return favWait;
+  };
+  D.isFav = function (type, key) {
+    return !!(favs || []).some(function (x) { return x.target_type === type && x.target_key === String(key); });
+  };
+  D.toggleFav = async function (type, key, title) {
+    key = String(key);
+    await D.favs();
+    var cur = favs.filter(function (x) { return x.target_type === type && x.target_key === key; })[0];
+    if (cur) {
+      await D.q(D.sb.from('user_favorites').delete().eq('favorite_id', cur.favorite_id));
+      favs = favs.filter(function (x) { return x !== cur; });
+      return false;
+    }
+    var row = await D.q(D.sb.from('user_favorites').insert({ target_type: type, target_key: key, title: (title || '').slice(0, 300) }).select().single());
+    favs.unshift(row);
+    return true;
+  };
+  /* ☆ 버튼: 누르면 관심 등록/해제 (화면 어디서나 같은 모양) */
+  D.favButton = function (type, key, title, opts) {
+    var o = opts || {};
+    var label = type === 'company' ? '관심 기업' : '스크랩';
+    var b = D.h('button', { type: 'button', class: 'fav' + (o.small ? ' small' : '') + (o.right ? ' right' : '') + (o.text ? ' with-text' : '') });
+    function paint() {
+      var on = D.isFav(type, key);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.setAttribute('aria-label', label + (on ? ' 해제' : ' 등록') + ': ' + (title || ''));
+      b.title = on ? label + ' 해제' : label + ' 등록';
+      D.set(b, D.h('span', { class: 'fav-star', 'aria-hidden': 'true', text: on ? '★' : '☆' }), o.text ? (on ? label + ' 등록됨' : label + ' 등록') : null);
+    }
+    b.addEventListener('click', async function (e) {
+      e.preventDefault(); e.stopPropagation();
+      b.disabled = true;
+      try { await D.toggleFav(type, key, title); } catch (err) { console.error(err); b.title = '저장하지 못했습니다'; }
+      b.disabled = false;
+      document.querySelectorAll('.fav').forEach(function (x) { if (x.repaint) x.repaint(); });
+      if (o.onChange) o.onChange();
+    });
+    b.repaint = paint;
+    paint();
+    if (!favs) D.favs().then(paint);
+    return b;
   };
   D.itemHref = function (key) { return D.root + 'item.html?key=' + encodeURIComponent(key); };
 
@@ -135,10 +206,10 @@
     market: 'M3 17l6-6 4 4 8-8M15 7h6v6', research: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3',
     disc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7', mail: 'M3 6h18v12H3zM3 6l9 7 9-7', status: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18',
     users: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8',
-    pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01'
+    pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z', gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01'
   };
   var MENU = [
-    { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum]] },
+    { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum], ['scrap', '내 스크랩', 'scrap.html', I.star]] },
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
     { label: '분야별 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit], ['market', '시장·투자 동향', 'market.html', I.market],
       ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc]] },
@@ -257,7 +328,7 @@
     function draw() {
       var r = range();
       var presets = [['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['day', '날짜 지정'], ['range', '기간 지정']];
-      var kids = [D.h('b', { text: o.dayOnly ? '날짜' : '조회' })];
+      var kids = [D.h('b', { text: o.dayOnly ? '날짜' : (o.label || '조회') })];
       if (o.dayOnly) {
         kids.push(D.h('button', { type: 'button', class: 'btn', 'aria-pressed': st.day === TODAY ? 'true' : 'false', text: '오늘',
           onclick: function () { st.day = TODAY; fire(); } }));

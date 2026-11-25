@@ -13,7 +13,7 @@ Node.js·npm·빌드 도구를 쓰지 않습니다 (보안 정책).
 
 ---
 
-## 1. 구조 (2026-11-24 1차 구현)
+## 1. 구조 (2026-11-24 1차 · 11-25 2차)
 
 ```
 dfind-frontend/
@@ -22,14 +22,15 @@ dfind-frontend/
 ├─ index.html                 ← 첫 주소 → pages/index.html 로 바로 이동만 함
 ├─ pages/                     ← 화면(html)은 모두 여기 한 폴더
 │  ├─ login.html              ← 메일 로그인 링크 또는 비밀번호
-│  ├─ index.html              ← 01 SUMMARY (날짜 하나만 고름. 오늘의 결론은 DB 에 저장된 것을 읽음)
+│  ├─ index.html              ← 01 SUMMARY (날짜 하나만 고름. 오늘의 결론은 DB 에 저장된 것을 읽음. 관리자는 '요약 만들기' 버튼)
+│  ├─ scrap.html              ← 내 스크랩 (☆ 누른 관심 기업·정보, 계정마다 따로)
 │  ├─ radar.html              ← 02 기업 레이더 (평가 기준 공개 + 기준일 점수·순위, 근거 펼치기)
-│  ├─ company.html            ← 03 기업 정보 (?id=… / id 없으면 기업 찾기)
+│  ├─ company.html            ← 03 기업 정보 (id 없으면 조회·필터·정렬 + 기업 목록 표 / ?id=… 기본 정보·그래프·핵심 숫자)
 │  ├─ regulatory.html         ← 04 인허가·제도
-│  ├─ market.html             ← 05 시장·투자 동향 (같은 사건 묶기)
+│  ├─ market.html             ← 05 시장·투자 동향 (주요 뉴스 + 종류별 표, 같은 사건 묶기)
 │  ├─ research.html           ← 06 연구·과제
 │  ├─ disclosure.html         ← 07 공시 (DART 수집 전이라 빈 화면)
-│  ├─ item.html               ← 정보 한 건 자세히 (?key=…): 본문·첨부(내용 보기·내려받기)·원본 보기
+│  ├─ item.html               ← 정보 한 건 자세히 (?key=…): 제목 아래 본문 · 첨부(원본 내려받기·내용 보기(엑셀은 표)·지난 파일과 비교) · 원본 보기
 │  ├─ mail.html, status.html  ← 08 메일 리포트 · 09 수집 현황 (준비 중)
 │  ├─ admin-summary.html      ← 관리자: 오늘의 결론 입력 (Claude 앱에 붙여넣을 글 복사 → 답 붙여넣고 저장, API 비용 없음)
 │  ├─ admin-recipients.html   ← 관리자: 메일 수신자 (추가·수정·중지·삭제)
@@ -40,7 +41,8 @@ dfind-frontend/
 │  └─ js/
 │     ├─ config.js            ← SUPABASE_URL, anon 키 (공개돼도 되는 값만)
 │     ├─ core.js              ← 로그인 확인, 왼쪽 메뉴, 글자 크게, 조회 막대(오늘·7일·30일·날짜 지정·기간 지정)
-│     ├─ category.js          ← 분야별 화면 공통 (종류별 칸·검색·목록)
+│     ├─ category.js          ← 분야별 화면 공통 (조회 영역: 기간·검색어(본문·첨부까지)·종류 / 종류별 칸 / 목록·첨부 바로 받기)
+│     ├─ chart.js             ← 기업 상세의 선 그래프·작은 막대 (SVG, 외부 라이브러리 없음)
 │     └─ pages/               ← 화면별 JS (html 1개 = JS 1개, 이름은 아래 표)
 └─ vendor/
    ├─ supabase.js             ← supabase-js 2.119.2 UMD (npm 패키지의 dist/umd/supabase.js 그대로)
@@ -49,12 +51,13 @@ dfind-frontend/
 
 | 화면 (pages/) | JS (assets/js/pages/) |
 | --- | --- |
-| index · radar · company · item · login | summary · radar · company · item · login |
+| index · radar · company · item · login · scrap | summary · radar · company(+ chart.js) · item · login · scrap |
 | regulatory · market · research · disclosure | 같은 이름 (+ assets/js/category.js) |
 | mail · status | prepare |
 | admin-summary · admin-recipients · admin-settings · admin-logs | summary-input · recipients · settings · logs |
 
-- 데이터는 DB 함수로만 읽습니다: `dash_feed`, `dash_feed_counts`, `dash_company_scores`, `dash_company`
+- 데이터는 DB 함수로만 읽습니다: `dash_feed`(검색어 `p_query`), `dash_feed_counts`, `dash_company_scores`, `dash_company`, `dash_company_list`,
+  `dash_item`, `dash_files`, `dash_attachment_text`, `admin_make_summary`. 내 스크랩은 `user_favorites` 표(본인 것만 쓰기)
   (backend `database/42_dashboard.sql`). 로그인하고 권한(viewer·admin)이 있는 사람만 결과가 나옵니다.
 - 고른 날짜·기간은 주소(`?per=7`, `?per=day&day=2026-11-20`, `?per=range&from=…&to=…`)에 남아 새로고침·공유해도 유지됩니다.
 - 관리자 메뉴는 admin 에게만 보이고, 실제 차단은 DB 권한(RLS)이 합니다.
