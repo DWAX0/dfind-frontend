@@ -16,8 +16,8 @@
   var fDaily = h('input', { type: 'checkbox', id: 'r-daily', checked: true }), fWeekly = h('input', { type: 'checkbox', id: 'r-weekly' });
 
   D.set(main, 
-    D.header('메일 수신자 관리', '매일 오전 9시 요약 메일을 받을 사람을 정합니다', { admin: true,
-      right: h('button', { type: 'button', class: 'btn', disabled: true, title: '메일 발송 기능을 연결한 뒤 사용할 수 있습니다', text: '나에게 시험 발송 (준비 중)' }) }),
+    D.header('메일 수신자 관리', '요약 메일을 받을 사람과 보내는 시각을 정합니다. 시험 발송은 위쪽 [메일 리포트 전송]에서', { admin: true }),
+    D.scheduleCard('mail_daily', '요약 메일 자동 발송 시각'),
     summary, msg,
     h('section', { class: 'card', 'aria-labelledby': 'add-h' }, h('h2', { id: 'add-h', text: '받는 사람 추가' }),
       h('div', { class: 'tiles' },

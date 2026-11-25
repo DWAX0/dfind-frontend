@@ -72,12 +72,12 @@
   }
   function sentenceList(row) {
     return h('ol', null, (row.conclusions || []).map(function (c, i) {
-      return h('li', null, h('span', { class: 'num', text: i + 1 }), h('span', null, c.text, h('br'), refLinks(c.refs)));
+      return h('li', null, h('span', { class: 'num', text: i + 1 }), h('span', null, D.rich(c.text), h('br'), refLinks(c.refs)));
     }));
   }
   /* 관리자: 수집이 끝난 뒤 '요약 만들기' (1단계: 규칙 방식, 비용 없음). 2단계에서 Claude API 로 바뀜 */
   function makeButton(d, row, range) {
-    if (D.role !== 'admin') return null;
+    if (D.role !== 'admin' || row) return null; // 이미 결론이 있으면 버튼 없음 (바꾸려면 관리자 › 오늘의 결론 입력)
     var label = row ? '요약 다시 만들기' : '요약 만들기';
     var msg = h('span', { class: 'note', role: 'status' });
     var btn = h('button', { type: 'button', class: 'btn primary small', onclick: async function () {

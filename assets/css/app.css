@@ -478,3 +478,43 @@ ol.steps.one-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .kind-chip.has b { color: var(--ink); }
 .kind-chip:hover { border-color: var(--green); color: var(--green); }
 @media print { .gnb { display: none !important; } }
+
+/* ===== 2026-11-25 4차 ===== */
+/* 결론 핵심 낱말 강조 */
+strong.kp { color: #0a6b51; background: linear-gradient(transparent 62%, #c9f0df 62%); font-weight: 800; padding: 0 1px; }
+/* 기업 상세: [기본 정보 | 점수] 같은 높이 · [통계 2×2 | 그래프 2행] 한 카드 */
+.detail-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: stretch; }
+.detail-row > .card { height: 100%; }
+.stats-card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
+.stats-card .stat-grid { align-self: stretch; }
+.charts-2.rows { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+ol.steps.one-row.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.step-btn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px; border-radius: 10px; border: 1px solid transparent; }
+.step-btn:hover, .step-btn:focus-visible { border-color: var(--green); background: #f2fbf7; }
+/* 일정 카드 */
+.schedule-card .search-row { align-items: center; }
+.schedule-card input[type=time] { min-width: 140px; }
+/* 수집 현황 */
+.tile-bad { border-color: #f1b4b4; background: #fff7f7; }
+td.num-cell { text-align: right; font-variant-numeric: tabular-nums; }
+td.num-cell.bad { color: var(--red); font-weight: 700; }
+td.err-cell { color: var(--red); font-size: 0.88rem; max-width: 320px; }
+/* 메일 리포트 (아카이브) */
+.archive { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+.archive-list { position: sticky; top: 76px; max-height: calc(100vh - 100px); overflow: auto; }
+.archive-dates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.archive-date { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 12px; border-radius: 8px; }
+.archive-date:hover { background: #f1f5f9; }
+.archive-date[aria-current="true"] { background: var(--navy); color: #fff; }
+.archive-date[aria-current="true"] .note { color: #c8d6e0; }
+.mail-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.mail-head h2 { margin: 2px 0; }
+.archive-view h3 { margin: 18px 0 6px; font-size: 1.1rem; }
+.archive-view h4 { margin: 12px 0 2px; }
+.mail-concl { padding-left: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.65; font-size: 1.05rem; }
+.mail-top { padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 1024px) {
+  .detail-row, .stats-card, .archive { grid-template-columns: minmax(0, 1fr); }
+  .archive-list { position: static; max-height: none; }
+  ol.steps.one-row.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

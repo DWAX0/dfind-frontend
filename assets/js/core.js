@@ -48,6 +48,12 @@
     return s;
   };
   D.width = function (el, pct) { el.style.width = Math.max(0, Math.min(100, pct)) + '%'; return el; };
+  /* 결론 문장: **핵심 낱말** 만 강조 (글자는 textContent 로만 넣음) */
+  D.rich = function (text) {
+    var parts = String(text || '').split(/\*\*(.+?)\*\*/);
+    return parts.map(function (p, i) { return i % 2 ? D.h('strong', { class: 'kp', text: p }) : document.createTextNode(p); });
+  };
+  D.plain = function (text) { return String(text || '').replace(/\*\*(.+?)\*\*/g, '$1'); };
   D.clean = function (s) { // 네이버 제목의 <b>·&quot; 같은 표시를 글자로 (스크립트는 실행되지 않음)
     if (!s) return '';
     return new DOMParser().parseFromString(String(s), 'text/html').body.textContent || '';
@@ -213,7 +219,7 @@
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
     { label: '분야별 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit], ['market', '시장·투자 동향', 'market.html', I.market],
       ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc]] },
-    { label: '기록·운영', items: [['mail', '메일 리포트', 'mail.html', I.mail, '준비 중'], ['status', '수집 현황', 'status.html', I.status, '준비 중']] },
+    { label: '기록·운영', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['status', '수집 현황', 'status.html', I.status]] },
     { label: '관리자', admin: true, items: [['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen], ['recipients', '메일 수신자', 'admin-recipients.html', I.users],
       ['settings', '기준 정보', 'admin-settings.html', I.gear], ['logs', '로그 관리', 'admin-logs.html', I.log]] }
   ];
@@ -316,7 +322,7 @@
       D.h('dl', { class: 'info' }, D.h('dt', { text: '날짜' }), D.h('dd', { text: D.fmtLong(day) }),
         D.h('dt', { text: '받는 사람' }), D.h('dd', null, n + '명 ', D.h('a', { href: D.root + 'admin-recipients.html', text: '수신자 관리' }))),
       D.h('h3', { text: '본문 첫 단락 (오늘의 결론)' }),
-      sum && (sum.conclusions || []).length ? D.h('ol', { class: 'dialog-list' }, sum.conclusions.map(function (c) { return D.h('li', { text: c.text }); }))
+      sum && (sum.conclusions || []).length ? D.h('ol', { class: 'dialog-list' }, sum.conclusions.map(function (c) { return D.h('li', null, D.rich(c.text)); }))
         : D.h('p', { class: 'notice', text: '오늘 결론이 아직 없습니다. 이대로 보내면 규칙 방식 결론이 자동으로 들어갑니다. (먼저 오늘의 결론 입력을 하셔도 됩니다)' }),
       D.h('p', { class: 'note', text: '메일에는 결론 · 주목 기업 TOP 5 · 분야별 새 소식이 들어갑니다. 네이버 검색 기사는 약관 때문에 넣지 않습니다. 같은 날짜는 한 번만 보냅니다.' }),
       D.h('div', { class: 'chips' },

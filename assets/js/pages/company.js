@@ -219,15 +219,15 @@
       return h('div', { class: 'tile kpi' }, h('span', { class: 'tile-label', text: label }), D.miniBars(bars, barLabels),
         h('span', { class: 'tile-num' }, value, h('small', { text: '건' })), h('span', { class: 'tile-note', text: note || '' }));
     }
-    var stats = h('section', { class: 'stat-grid', 'aria-label': '통계' },
+    var stats = h('div', { class: 'stat-grid', 'aria-label': '통계' },
       stat('허가 제품', data.registrations.length, years[0] + '년부터 연도별', yReg, years),
       stat('혁신의료기기 지정', data.innovations.length, lastDate(data.innovations, 'designation_date') ? '최근 ' + D.fmt(lastDate(data.innovations, 'designation_date')) : '없음', yInn, years),
       stat('임상시험 승인', data.trials.length, lastDate(data.trials, 'approval_date') ? '최근 ' + D.fmt(lastDate(data.trials, 'approval_date')) : '없음', yTri, years),
       stat('최근 1년 소식', tl.length, '월별', mNews, months));
-    var charts = h('section', { class: 'card', 'aria-label': '그래프' }, h('div', { class: 'charts-2' },
-      D.lineChart({ title: '연도별 허가·지정·임상 건수', labels: years.map(String), unit: '건',
+    var charts = h('div', { class: 'charts-stack', 'aria-label': '그래프' }, h('div', { class: 'charts-2 rows' },
+      D.lineChart({ title: '연도별 허가·지정·임상 건수', labels: years.map(String), unit: '건', height: 150,
         series: [{ name: '허가', values: yReg, cls: 's1' }, { name: '혁신 지정', values: yInn, cls: 's2' }, { name: '임상 승인', values: yTri, cls: 's3' }] }),
-      D.lineChart({ title: '최근 12개월 소식 건수', labels: months.map(function (m) { return Number(m.slice(5)) + '월'; }), unit: '건',
+      D.lineChart({ title: '최근 12개월 소식 건수', labels: months.map(function (m) { return Number(m.slice(5)) + '월'; }), unit: '건', height: 150,
         series: [{ name: '소식', values: mNews, cls: 's1' }] })));
 
     // ---- 인허가 진행 단계 (한 줄)
@@ -236,14 +236,16 @@
       { name: '혁신의료기기 지정', done: data.innovations.length > 0, note: data.innovations.length ? data.innovations.length + '건 · ' + D.fmt(lastDate(data.innovations, 'designation_date')) : '정보 없음' },
       { name: '임상시험 승인', done: data.trials.length > 0, note: data.trials.length ? data.trials.length + '건 · ' + D.fmt(lastDate(data.trials, 'approval_date')) : '정보 없음' },
       { name: '평가 유예·신의료기술', done: !!(kinds['평가 유예'] || kinds['신의료기술 평가']), doing: !!kinds['혁신의료기술 평가'],
-        note: (kinds['평가 유예'] || kinds['신의료기술 평가'] || kinds['혁신의료기술 평가'] || [{}])[0].detail || '정보 없음' },
-      { name: '건강보험 급여', done: false, note: '수집 대상 아님' }
+        note: (kinds['평가 유예'] || kinds['신의료기술 평가'] || kinds['혁신의료기술 평가'] || [{}])[0].detail || '정보 없음' }
     ];
+    var STEP_TAB = ['허가 제품', '혁신의료기기', '임상시험', 'NECA 평가·유예'];
     var stepCard = h('section', { class: 'card', 'aria-labelledby': 'steps-h' }, h('h2', { id: 'steps-h', text: '인허가 진행 단계' }),
-      h('ol', { class: 'steps one-row' }, steps.map(function (st) {
+      h('p', { class: 'note', text: '단계를 누르면 아래 목록에서 그 자료만 봅니다.' }),
+      h('ol', { class: 'steps one-row four' }, steps.map(function (st, i) {
         var state = st.done ? 'done' : st.doing ? 'doing' : 'todo';
-        return h('li', null, h('span', { class: 'step-dot ' + state, text: st.done ? '✓' : '' }), h('b', { text: st.name }),
-          h('span', { class: 'step-state ' + state, text: st.done ? '완료' : st.doing ? '진행 중' : '아직' }), h('span', { class: 'note', text: st.note }));
+        return h('li', null, h('button', { type: 'button', class: 'step-btn', onclick: function () { pickByName(STEP_TAB[i]); tabCard.scrollIntoView({ block: 'start', behavior: 'smooth' }); } },
+          h('span', { class: 'step-dot ' + state, text: st.done ? '✓' : '' }), h('b', { text: st.name }),
+          h('span', { class: 'step-state ' + state, text: st.done ? '완료' : st.doing ? '진행 중' : '아직' }), h('span', { class: 'note', text: st.note })));
       })));
 
     // ---- 탭: 가진 자료로 나눠 보기 (건수 0인 소식 종류는 숨김)
@@ -286,7 +288,7 @@
       ['혁신의료기기', data.innovations.length, function () { return data.innovations.length ? more(data.innovations, innItem, 20) : D.empty('혁신의료기기 지정 정보가 없습니다.'); }, true],
       ['허가 제품', data.registrations.length, function () { return data.registrations.length ? more(data.registrations, regItem, 20) : D.empty('허가 정보가 없습니다.'); }, true],
       ['임상시험', data.trials.length, function () { return data.trials.length ? more(data.trials, triItem, 20) : D.empty('임상시험 승인 정보가 없습니다.'); }, true],
-      ['NECA 평가·유예', neca.length, function () { return itemsPanel(neca, ''); }]
+      ['NECA 평가·유예', neca.length, function () { return itemsPanel(neca, 'NECA 평가·유예 정보가 없습니다.'); }, true]
     ].concat(['투자', '병원 협력', '전시·해외', 'R&D 과제', '논문·연구', '뉴스', '품목 허가'].map(function (k) {
       var lst = kinds[k] || [];
       return [k, lst.length, function () { return itemsPanel(lst, ''); }];
@@ -302,15 +304,15 @@
         t[0], h('span', { class: 'badge gray', text: t[1] })));
     });
     var tabCard = h('section', { class: 'card', 'aria-label': '기업 자료' }, tabBar, tabBody);
+    function pickByName(n) { for (var k = 0; k < TABS.length; k++) if (TABS[k][0] === n) { pick(k); return; } }
 
     D.set(main,
       h('div', { class: 'detail-bar' },
         h('a', { class: 'btn small', href: 'company.html' }, D.svg('M15 5l-7 7 7 7', 20), '기업 목록'),
         h('a', { class: 'btn small', href: 'radar.html', text: '기업 레이더' }),
         h('span', { class: 'right' }, D.favButton('company', c.company_id, c.company_name, { text: true }))),
-      h('div', { class: 'detail-grid' },
-        h('div', { class: 'detail-col' }, info, stats),
-        h('div', { class: 'detail-col' }, score, charts)),
+      h('div', { class: 'detail-row' }, info, score),
+      h('section', { class: 'card stats-card', 'aria-label': '통계와 그래프' }, stats, charts),
       stepCard, tabCard);
     pick(0);
     document.title = c.company_name + ' · D*Find';
