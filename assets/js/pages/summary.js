@@ -7,21 +7,26 @@
   if (!main) return;
   var h = D.h;
   var TODAY = D.today();
-  var SECURED = ['혁신의료기기 지정', '평가 유예', '신의료기술 평가', '혁신의료기술 평가'];
-  var EXPECTED = ['임상시험 승인', '투자', '병원 협력', 'R&D 과제'];
+  var SECURED = ['혁신의료기기 지정', '평가 유예', '신의료기술 평가', '혁신의료기술 평가', '디지털의료기기 허가', '신개발 의료기기 심사', '품목 허가'];
+  var EXPECTED = ['임상시험 승인', '투자', '병원 협력', 'R&D 과제', '전시·해외', '논문·연구'];
+  // 종류별 칸: 기업 발굴에 쓰는 종류는 0건이어도 늘 보여 줌 (빠진 것처럼 보이지 않게)
+  var KINDS = [['혁신의료기기 지정', 'permit'], ['평가 유예', 'permit', '신의료기술 평가 유예'], ['신의료기술 평가', 'permit'], ['혁신의료기술 평가', 'permit'],
+    ['디지털의료기기 허가', 'permit'], ['품목 허가', 'permit', '식약처 품목 허가'], ['임상시험 승인', 'research'], ['R&D 과제', 'research'], ['논문·연구', 'research'],
+    ['투자', 'market'], ['병원 협력', 'market'], ['전시·해외', 'market']];
 
   var titleEl = h('h1', { class: 'title' });
   var subEl = h('p', { class: 'sub' });
   var pastEl = h('p', { class: 'notice', hidden: true });
   var concl = h('section', { class: 'card concl', 'aria-labelledby': 'concl-h' });
   var tiles = h('section', { class: 'tiles', 'aria-label': '분야별 건수' });
+  var kindTiles = h('section', { class: 'card', 'aria-labelledby': 'kinds-h' });
   var sense = h('section', { class: 'card', 'aria-labelledby': 'sense-h' });
   var top = h('section', { class: 'card', 'aria-labelledby': 'top-h' });
   var news = h('section', { class: 'card', 'aria-labelledby': 'news-h' });
   var bar = D.periodBar({ dayOnly: true, onChange: load });
   D.set(main, 
     h('header', { class: 'top' }, h('div', { class: 'grow' }, titleEl, subEl, pastEl)),
-    bar, concl, tiles, sense, h('div', { class: 'row' }, h('div', { class: 'wide' }, top), h('div', { class: 'wide' }, news)));
+    bar, concl, tiles, kindTiles, sense, h('div', { class: 'row' }, h('div', { class: 'wide' }, top), h('div', { class: 'wide' }, news)));
   bar.start();
 
   function settle(p) { return p.then(function (v) { return { ok: true, v: v }; }, function (e) { return { ok: false, e: e }; }); }
@@ -34,7 +39,7 @@
     subEl.textContent = single ? D.fmtLong(d) + ' · 전날과 당일에 발표·승인된 정보' : D.fmt(r.from) + ' ~ ' + D.fmt(r.to) + ' 동안 발표·승인된 정보';
     pastEl.hidden = !(single && d < TODAY);
     pastEl.textContent = '지난 날짜입니다. 결론은 그날 오전 9시 메일과 같은 내용입니다.';
-    [concl, tiles, sense, top, news].forEach(function (el) { D.set(el, D.loading()); });
+    [concl, tiles, kindTiles, sense, top, news].forEach(function (el) { D.set(el, D.loading()); });
 
     var res = await Promise.all([
       settle(D.rpc('dash_feed_counts', { p_from: feedFrom, p_to: d })),
@@ -46,6 +51,7 @@
     ]);
     drawConclusions(res[1], single, d, r);
     drawTiles(res[0], res[2], '?per=range&from=' + feedFrom + '&to=' + d);
+    drawKinds(res[0], 'per=range&from=' + feedFrom + '&to=' + d);
     drawSense(res[3], d);
     drawTop(res[2]);
     drawNews(res[4]);
@@ -100,7 +106,7 @@
     var m = rows[0] && rows[0].model;
     var how = m === 'claude-app' ? '담당자가 Claude 앱으로 수집 결과를 정리해 입력 · 네이버 검색 기사는 약관에 따라 제외'
       : m && m !== 'rule-based' ? 'Claude 가 수집 결과를 읽고 정리 · 네이버 검색 기사는 약관에 따라 제외'
-      : '수집 결과를 규칙에 따라 자동 정리 (혁신 지정 → 임상 승인 → 투자 → 허가 순)' + (D.role === 'admin' ? ' · 관리자 › 오늘의 결론 입력에서 바꿀 수 있음' : '');
+      : '기업마다 무슨 일이 있었고 발굴에 어떤 의미인지 규칙으로 정리 (중요한 순 최대 5개, 비용 없음 · 문장 요약은 2단계 Claude API)' + (D.role === 'admin' ? ' · 관리자 › 오늘의 결론 입력에서 바꿀 수 있음' : '');
     head.querySelector('#concl-how').textContent = how;
     if (!rows.length) {
       D.set(concl, head, D.empty(single ? '이날 요약이 아직 없습니다. 수집이 끝난 뒤 관리자가 \'요약 만들기\'를 누르면 만들어집니다.' : '이 기간에 만들어진 요약이 없습니다.'));
@@ -139,6 +145,17 @@
     D.set(tiles, kids);
   }
 
+  function drawKinds(rc, q) {
+    var head = h('div', { class: 'card-head' }, h('h2', { id: 'kinds-h', text: '종류별 건수' }), h('span', { class: 'note', text: '누르면 그 종류만 모아 봅니다' }));
+    if (!rc.ok) { D.set(kindTiles, head, D.fail(rc.e)); return; }
+    var n = {};
+    rc.v.forEach(function (x) { n[x.kind] = (n[x.kind] || 0) + Number(x.item_count); });
+    D.set(kindTiles, head, h('div', { class: 'kind-grid' }, KINDS.map(function (k) {
+      return h('a', { class: 'kind-chip' + (n[k[0]] ? ' has' : ''), href: D.CAT[k[1]].page + '?' + q + '&kind=' + encodeURIComponent(k[0]) },
+        h('span', { class: 'dot dot-' + k[1] }), h('span', { class: 'kind-name', text: k[2] || k[0] }), h('b', { text: D.num(n[k[0]] || 0) }));
+    })));
+  }
+
   function senseItem(f, cls) {
     return h('div', { class: 'sense-item' }, D.badge(f.kind, cls),
       f.company_name ? D.companyLink(f.company_id, f.company_name) : null,
@@ -157,8 +174,8 @@
         list.length > 6 ? h('a', { href: page + '?per=30', text: '전체 ' + list.length + '건 보기' }) : null);
     }
     D.set(sense, head, h('div', { class: 'sense' },
-      col('secured', '확보', '혁신의료기기 지정 · 평가 유예 · 신의료기술', sec, 'k-secured', 'regulatory.html'),
-      col('expected', '확보 기대', '임상 승인 · R&D · 투자 · 병원 협력', exp, 'k-expected', 'research.html')));
+      col('secured', '확보', '혁신의료기기 지정 · 평가 유예 · 신의료기술 · 허가', sec, 'k-secured', 'regulatory.html'),
+      col('expected', '확보 기대', '임상 승인 · R&D · 논문 · 투자 · 병원 협력 · 전시', exp, 'k-expected', 'research.html')));
   }
 
   function drawTop(r) {

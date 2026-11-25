@@ -239,14 +239,61 @@
             D.svg(m[3]), m[1], m[4] && m[0] !== active ? D.h('span', { class: 'menu-tag', text: m[4] }) : null);
         })));
     });
-    var foot = D.h('div', { class: 'side-foot' }, D.h('span', { text: '마지막 수집' }), D.h('b', { id: 'last-crawl', text: '확인 중…' }),
-      D.h('span', { id: 'crawl-health' }),
-      D.h('button', { type: 'button', class: 'side-btn', id: 'font-toggle', onclick: toggleFont }),
-      D.user ? D.h('span', { text: D.user.email }) : null,
-      D.user ? D.h('button', { type: 'button', class: 'side-btn', text: '로그아웃', onclick: logout }) : null);
-    kids.push(foot);
     D.set(nav, D.h('div', { class: 'side-top' }, brand, toggle), D.h('div', { class: 'side-body', id: 'side-body' }, kids));
+    renderGnb(role);
+  }
+
+  // ---- 위쪽 막대 (GNB): 사이트 이름 · 마지막 수집 · 메일 리포트 전송(관리자) · 글자 크기 · 로그인 정보 ----
+  function renderGnb(role) {
+    var main = document.getElementById('main');
+    if (!main) return;
+    var gnb = document.getElementById('gnb');
+    if (!gnb) {
+      var wrap = D.h('div', { class: 'content' });
+      main.parentNode.insertBefore(wrap, main);
+      gnb = D.h('header', { class: 'gnb', id: 'gnb' });
+      wrap.append(gnb, main);
+    }
+    var ROLE = { admin: '관리자', viewer: '조회' };
+    D.set(gnb,
+      D.h('div', { class: 'gnb-site' }, D.h('b', { text: 'D*Find' }), D.h('span', { text: '유망 디지털헬스케어 기업 발굴' })),
+      D.h('div', { class: 'gnb-crawl' }, D.svg('M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18', 18),
+        D.h('span', { text: '마지막 수집' }), D.h('b', { id: 'last-crawl', text: '확인 중…' }), D.h('span', { id: 'crawl-health' })),
+      D.h('div', { class: 'gnb-right' },
+        role === 'admin' ? D.h('button', { type: 'button', class: 'btn primary small', onclick: openMailDialog },
+          D.svg('M3 6h18v12H3zM3 6l9 7 9-7', 18), '메일 리포트 전송') : null,
+        D.h('button', { type: 'button', class: 'btn small', id: 'font-toggle', onclick: toggleFont }),
+        D.user ? D.h('span', { class: 'gnb-user' }, D.svg('M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 18),
+          D.h('span', { class: 'gnb-email', text: D.user.email }), role ? D.badge(ROLE[role] || role, role === 'admin' ? 'bad' : 'gray') : null) : null,
+        D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null));
     setFontLabel();
+  }
+
+  /* 관리자: 메일 리포트 전송 (보낼 내용·받는 사람 확인 → 전송). 실제 발송은 메일 발송 단계에서 연결 */
+  async function openMailDialog() {
+    var day = D.today();
+    var body = D.h('div', { class: 'dialog-body' }, D.loading());
+    var dlg = D.h('dialog', { class: 'dialog', 'aria-labelledby': 'mail-dlg-h' },
+      D.h('div', { class: 'card-head' }, D.h('h2', { id: 'mail-dlg-h', text: '메일 리포트 전송' }),
+        D.h('button', { type: 'button', class: 'btn small right', text: '닫기', onclick: function () { dlg.close(); } })),
+      body);
+    dlg.addEventListener('close', function () { dlg.remove(); });
+    document.body.appendChild(dlg);
+    dlg.showModal();
+    var res = await Promise.all([
+      D.q(D.sb.from('daily_summaries').select('conclusions,model,status').eq('kind', 'daily').eq('summary_date', day).maybeSingle()).catch(function () { return null; }),
+      D.q(D.sb.from('mail_recipients').select('recipient_id', { count: 'exact' }).eq('is_active', true).eq('receive_daily', true)).catch(function () { return []; })
+    ]);
+    var sum = res[0], n = (res[1] || []).length;
+    D.set(body,
+      D.h('dl', { class: 'info' }, D.h('dt', { text: '날짜' }), D.h('dd', { text: D.fmtLong(day) }),
+        D.h('dt', { text: '받는 사람' }), D.h('dd', null, n + '명 ', D.h('a', { href: D.root + 'admin-recipients.html', text: '수신자 관리' }))),
+      D.h('h3', { text: '본문 첫 단락 (오늘의 결론)' }),
+      sum && (sum.conclusions || []).length ? D.h('ol', { class: 'dialog-list' }, sum.conclusions.map(function (c) { return D.h('li', { text: c.text }); }))
+        : D.h('p', { class: 'notice', text: '오늘 요약이 아직 없습니다. SUMMARY 화면에서 [요약 만들기]를 먼저 눌러 주세요.' }),
+      D.h('p', { class: 'notice info', text: '메일 발송(보내는 메일 계정 연결)은 다음 단계에서 붙입니다. 연결되면 이 버튼으로 바로 보냅니다.' }),
+      D.h('div', { class: 'chips' }, D.h('button', { type: 'button', class: 'btn primary', disabled: true, text: '지금 보내기 (준비 중)' }),
+        D.h('button', { type: 'button', class: 'btn', text: '닫기', onclick: function () { dlg.close(); } })));
   }
   async function loadCrawlHealth() {
     try {
