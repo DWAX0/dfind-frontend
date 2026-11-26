@@ -93,8 +93,8 @@
         var kk = r.fails > 0 ? 'bad' : (r.statuses || []).indexOf('running') >= 0 ? 'run' : (r.statuses || []).indexOf('partial') >= 0 ? 'warn' : 'ok';
         return h('i', { class: 'dot-run st-' + kk, title: D.fmtTime(r.run_at) + ' · ' + (kk === 'bad' ? '실패 ' + r.fails : kk === 'warn' ? '일부 실패' : '정상') + ' · 신규 ' + r.new_sum });
       })),
-      h('span', { class: 'run-when' }, h('span', { text: last ? D.fmtTime(last.run_at) : '–' }), h('span', { class: 'note', text: last ? '대상 ' + last.targets + '개 · 신규 ' + last.new_sum : '' })),
-      h('span', { class: 'run-new', text: '신규 ' + D.num(newSum) }),
+      h('span', { class: 'run-when' }, h('span', { text: last ? D.fmtTime(last.run_at) : '–' }), h('span', { class: 'note', text: last ? '마지막 실행: 대상 ' + last.targets + '개 · 신규 ' + last.new_sum : '' })),
+      h('span', { class: 'run-new', title: LBL[days] + ' 동안 새로 저장한 건수', text: LBL[days].replace('최근 ', '') + ' 신규 ' + D.num(newSum) }),
       h('span', { class: 'run-chev', 'aria-hidden': 'true', text: '▾' }));
     if (open[k]) D.set(body, detail(k, d));
     return h('li', { class: 'run run-' + kind }, btn, body);
@@ -102,7 +102,7 @@
 
   function detail(k, d) {
     var targets = h('div', { class: 'table-wrap' }, h('table', { class: 'grid' },
-      h('thead', null, h('tr', null, ['', '대상', '마지막 상태', '마지막 실행', '마지막 성공', '실행', '실패', '신규', '변경'].map(function (x) { return h('th', { scope: 'col', text: x }); }))),
+      h('thead', null, h('tr', null, ['', '대상', '마지막 상태', '마지막 실행', '마지막 성공', '실행 수', '실패 수', '신규', '변경'].map(function (x) { return h('th', { scope: 'col', text: x }); }))),
       h('tbody', null, d.targets.map(function (t) {
         var bad = FAIL.indexOf(t.last_status) >= 0;
         return h('tr', { class: bad ? 'row-bad' : null },
@@ -113,12 +113,16 @@
           h('td', { class: 'num-cell', text: t.runs }), h('td', { class: 'num-cell' + (t.fails ? ' bad' : ''), text: t.fails }),
           h('td', { class: 'num-cell', text: t.new_sum }), h('td', { class: 'num-cell', text: t.updated_sum }));
       }))));
-    var fails = d.fails;
-    return [h('h3', { class: 'run-sub', text: '대상별 결과 (' + LBL[days] + ')' }), targets,
-      h('h3', { class: 'run-sub', text: '실패·일부 실패 상세 ' + (fails.length ? fails.length + '건' : '') }),
-      fails.length ? h('div', { class: 'fail-list' }, fails.slice(0, 30).map(function (f) {
-        return h('details', { class: 'fail', open: fails.length <= 3 },
+    // 실패 뒤에 같은 대상이 다시 정상 수집됐으면 '해결됨' (지난 실패는 접어 둠)
+    var okAt = {};
+    d.targets.forEach(function (t) { okAt[t.target] = t.last_success; });
+    function fixedAt(f) { var t = okAt[f.target]; return t && new Date(t) > new Date(f.started_at) ? t : null; }
+    var open = d.fails.filter(function (f) { return !fixedAt(f); }), past = d.fails.filter(function (f) { return fixedAt(f); });
+    function failBox(f, isOpen) {
+        var fx = fixedAt(f);
+        return h('details', { class: 'fail' + (fx ? ' fixed' : ''), open: isOpen },
           h('summary', null, badge(f.status), h('b', { text: ' ' + (f.target || '') }), f.search_query ? h('span', { class: 'note', text: ' · 검색식 «' + f.search_query + '»' }) : null,
+            fx ? h('span', { class: 'fixed-tag', text: '✓ 해결됨 · ' + D.fmtTime(fx) + ' 정상 수집' }) : null,
             h('span', { class: 'note right', text: D.fmtTime(f.started_at) + (f.completed_at ? ' · ' + dur(f.started_at, f.completed_at) : '') })),
           h('dl', { class: 'info' },
             h('dt', { text: '오류 내용' }), h('dd', null, h('pre', { class: 'err-pre', text: f.error_message || '(내용 없음)' })),
@@ -126,6 +130,13 @@
             h('dt', { text: '수집 기간' }), h('dd', { text: (f.window_from ? D.fmtTime(f.window_from) : '?') + ' ~ ' + (f.window_to ? D.fmtTime(f.window_to) : '?') }),
             h('dt', { text: '건수' }), h('dd', { text: '확인 ' + (f.total_count == null ? '–' : f.total_count) + ' · 상세 ' + (f.fetched_count == null ? '–' : f.fetched_count) + ' · 신규 ' + (f.new_count || 0) + ' · 변경 ' + (f.updated_count || 0) }),
             h('dt', { text: '기록 번호' }), h('dd', { class: 'note', text: k + '_crawl_logs #' + f.crawl_log_id })));
-      }), fails.length > 30 ? h('p', { class: 'note', text: '최근 30건만 표시했습니다.' }) : null) : h('p', { class: 'note', text: '이 기간에 실패한 실행이 없습니다.' })];
+    }
+    return [h('h3', { class: 'run-sub', text: '대상별 결과 (' + LBL[days] + ')' }), targets,
+      h('h3', { class: 'run-sub', text: '지금 확인이 필요한 실패 ' + (open.length ? open.length + '건' : '') }),
+      open.length ? h('div', { class: 'fail-list' }, open.slice(0, 30).map(function (f) { return failBox(f, open.length <= 3); }))
+        : h('p', { class: 'note ok-note', text: '없습니다. 모든 대상이 마지막 실행에서 정상 수집됐습니다.' }),
+      past.length ? h('details', { class: 'past-fails' },
+        h('summary', null, '지난 실패 ' + past.length + '건 보기 — 이후 다시 정상 수집되어 할 일 없음'),
+        h('div', { class: 'fail-list' }, past.slice(0, 30).map(function (f) { return failBox(f, false); }))) : null];
   }
 })();

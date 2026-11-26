@@ -897,3 +897,10 @@ svg.chart .bar.s4 { fill: var(--accent); } svg.chart .bar.s5 { fill: var(--marke
 .dup-date { font-family: var(--f-num); }
 .news-mini .nm-dups { grid-column: 1 / -1; padding-left: 104px; }
 .news-mini .nm-dups .dup-wrap { margin-top: 0; }
+/* 수집 현황: 이후 정상화된 지난 실패는 접고 흐리게 */
+.fail.fixed { border-left-color: var(--line); opacity: 0.85; }
+.fixed-tag { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #E6F4EC; color: #1E7A47; font-size: 0.82rem; font-weight: 700; }
+.past-fails { margin-top: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 14px; }
+.past-fails > summary { cursor: pointer; font-weight: 600; color: var(--muted); min-height: 32px; display: flex; align-items: center; }
+.past-fails[open] > summary { margin-bottom: 8px; }
+.ok-note { color: #1E7A47; font-weight: 600; }
