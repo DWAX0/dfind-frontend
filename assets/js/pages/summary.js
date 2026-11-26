@@ -8,11 +8,12 @@
   var h = D.h;
   var TODAY = D.today();
   var SECURED = ['혁신의료기기 지정', '평가 유예', '신의료기술 평가', '혁신의료기술 평가', '디지털의료기기 허가', '신개발 의료기기 심사', '품목 허가'];
-  var EXPECTED = ['임상시험 승인', '투자', '병원 협력', 'R&D 과제', '전시·해외', '논문·연구'];
+  var EXPECTED = ['임상시험 승인', '투자', '자금 조달', '계약·수주', '병원 협력', 'R&D 과제', '전시·해외', '논문·연구'];
   // 종류별 칸: 기업 발굴에 쓰는 종류는 0건이어도 늘 보여 줌 (빠진 것처럼 보이지 않게)
   var KINDS = [['혁신의료기기 지정', 'permit'], ['평가 유예', 'permit', '신의료기술 평가 유예'], ['신의료기술 평가', 'permit'], ['혁신의료기술 평가', 'permit'],
     ['디지털의료기기 허가', 'permit'], ['품목 허가', 'permit', '식약처 품목 허가'], ['임상시험 승인', 'research'], ['R&D 과제', 'research'], ['논문·연구', 'research'],
-    ['투자', 'market'], ['병원 협력', 'market'], ['전시·해외', 'market']];
+    ['투자', 'market'], ['병원 협력', 'market'], ['전시·해외', 'market'],
+    ['자금 조달', 'disclosure', 'DART 유상증자·전환사채'], ['계약·수주', 'disclosure', 'DART 공급계약'], ['지배구조', 'disclosure', 'DART 최대주주 변경·합병·타법인 취득'], ['실적', 'disclosure', 'DART 실적·정기보고서']];
 
   var titleEl = h('h1', { class: 'title' });
   var subEl = h('p', { class: 'sub' });
@@ -134,7 +135,7 @@
       return h('a', { class: 'tile', href: D.CAT[c].page + q },
         h('span', { class: 'tile-label' }, h('span', { class: 'dot dot-' + c }), D.CAT[c].label),
         h('span', { class: 'tile-num' }, D.num(n), h('small', { text: '건' })),
-        h('span', { class: 'tile-note', text: list.slice(0, 2).map(function (x) { return x.kind + ' ' + x.item_count; }).join(' · ') || (c === 'disclosure' ? 'DART 수집 준비 중' : '없음') }));
+        h('span', { class: 'tile-note', text: list.slice(0, 2).map(function (x) { return x.kind + ' ' + x.item_count; }).join(' · ') || '없음' }));
     });
     if (rs.ok) {
       var up = rs.v.filter(function (x) { return x.delta > 0; }).length, down = rs.v.filter(function (x) { return x.delta < 0; }).length;
@@ -177,7 +178,7 @@
     }
     D.set(sense, head, h('div', { class: 'sense' },
       col('secured', '확보', '혁신의료기기 지정 · 평가 유예 · 신의료기술 · 허가', sec, 'k-secured', 'regulatory.html'),
-      col('expected', '확보 기대', '임상 승인 · R&D · 논문 · 투자 · 병원 협력 · 전시', exp, 'k-expected', 'research.html')));
+      col('expected', '확보 기대', '임상 승인 · R&D · 논문 · 투자(뉴스·DART) · 공급계약 · 병원 협력 · 전시', exp, 'k-expected', 'research.html')));
   }
 
   function drawTop(r) {
@@ -185,7 +186,7 @@
       h('a', { class: 'right', href: 'radar.html', text: '기업 레이더 전체' }));
     if (!r.ok) { D.set(top, head, D.fail(r.e)); return; }
     if (!r.v.length) { D.set(top, head, D.empty('점수를 계산할 기업이 없습니다.')); return; }
-    var CATK = { '혁신의료기기 지정': 'permit', '평가 유예': 'permit', '신의료기술 평가': 'permit', '디지털의료기기 허가': 'permit', '임상시험 승인': 'research', '투자': 'market' };
+    var CATK = { '혁신의료기기 지정': 'permit', '평가 유예': 'permit', '신의료기술 평가': 'permit', '디지털의료기기 허가': 'permit', '임상시험 승인': 'research', '투자': 'market', '자금 조달': 'disclosure', '계약·수주': 'disclosure' };
     D.set(top, head, h('div', { class: 'coms' }, r.v.slice(0, 6).map(function (c) {
       var cat = CATK[c.recent_signal] || 'company';
       return h('div', { class: 'com cat-' + cat + '-top' },
