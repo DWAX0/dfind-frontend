@@ -15,7 +15,7 @@
   }
   /* o: { labels: [...], series: [{ name, values, cls }], title, unit } */
   D.lineChart = function (o) {
-    var W = 560, H = o.height || 210, L = 34, R = 14, T = 14, B = 30;
+    var W = o.width || 560, H = o.height || 210, L = 34, R = 14, T = 14, B = 30;
     var max = nice(Math.max.apply(null, [1].concat(o.series.map(function (x) { return Math.max.apply(null, x.values); }))));
     var n = o.labels.length;
     var xs = function (i) { return L + (n === 1 ? (W - L - R) / 2 : i * (W - L - R) / (n - 1)); };

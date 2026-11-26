@@ -51,8 +51,12 @@
 
   D.set(main,
     D.header('인허가·제도', '혁신의료기기 지정 · 식약처 허가 · NECA 신의료기술 · 공지를 주간 단위로 봅니다 (발표·허가일 기준)', { dot: 'dot-permit', right: label }),
+    h('div', { class: 'reg-layout' },
+    // 왼쪽: 주차별 건수 (이번 주 앞뒤 4주, 누르면 그 주로)
+    h('aside', { class: 'card wk-side', 'aria-labelledby': 'wk-side-h' }, h('h2', { id: 'wk-side-h', class: 'wk-side-h', text: '주차별 건수' }),
+      h('p', { class: 'note', text: '전체 건수 · NEW = 새로 들어온 것' }), chips),
+    h('div', { class: 'reg-main' },
     h('section', { class: 'card search-panel', 'aria-label': '주차·기간 조회' },
-      chips,
       h('div', { class: 'search-row' },
         h('button', { type: 'button', class: 'btn small', text: '◀ 이전 주', onclick: function () { setWeek(D.addDays(st.from, -7)); } }),
         pick,
@@ -70,7 +74,7 @@
         h('div', { class: 'search-btns' },
           h('button', { type: 'button', class: 'btn primary', onclick: function () { st.q = q.value.trim(); load(); } }, D.svg('M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4', 20), '검색'),
           h('button', { type: 'button', class: 'btn', text: '초기화', onclick: function () { q.value = ''; st.q = ''; st.group = 'all'; st.onlyNew = false; newChip.setAttribute('aria-pressed', 'false'); setWeek(thisMon); } })))),
-    sum, listCard);
+    sum, listCard)));
 
   function save() {
     var u = new URLSearchParams();
@@ -96,8 +100,8 @@
       var nNew = inWeek.filter(function (f) { return D.isNewItem(f); }).length;
       var on = st.from === a && st.to === b;
       return h('button', { type: 'button', class: 'wk' + (k === 0 ? ' now' : '') + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', onclick: function () { setWeek(a); } },
-        h('span', { class: 'wk-top' }, (k === 0 ? '이번 주 · ' : '') + w.w + '주차', h('span', { class: 'wk-n', text: inWeek.length }), nNew ? h('span', { class: 'wk-new', text: 'NEW ' + nNew }) : null),
-        h('small', { text: md(a) + '–' + md(b) }));
+        h('span', { class: 'wk-top' }, h('b', { text: (k === 0 ? '이번 주 · ' : '') + w.w + '주차' }), h('small', { text: md(a) + '–' + md(b) })),
+        h('span', { class: 'wk-cnt' }, h('span', { class: 'wk-n', text: inWeek.length + '건' }), nNew ? h('span', { class: 'wk-new', text: 'NEW ' + nNew }) : null));
     }));
   }
 

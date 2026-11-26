@@ -25,11 +25,94 @@
     return img;
   };
 
+  /* ---- 조기 발굴 점수: 평가 기준 · 기업별 항목 점수와 근거 (기업 레이더 · 기업 정보에서 같이 씀) ----
+     evidence: { pipeline:{innovation,neca,registrations}, stage:{age}, signal:{trial,innovation,registration}, wear:{...}, details:{…} } */
+  D.SCORE_CRIT = [
+    { key: 's_pipeline', ev: 'pipeline', name: '파이프라인', max: 40, cls: 'c1', bar: 'b1', desc: '규제 단계를 얼마나 밟았나',
+      rules: [{ k: 'innovation', label: '혁신의료기기 지정', pts: 20, det: 'innovation' }, { k: 'neca', label: '신의료기술평가·평가 유예', pts: 12, det: 'neca' },
+        { k: 'registrations', label: '허가 (1건당 4점, 최대 8점)', pts: 8, det: 'registration' }] },
+    { key: 's_stage', ev: 'stage', name: '기업 단계', max: 20, cls: 'c2', bar: 'b2', desc: '아직 크지 않은 성장 초기 기업인가',
+      rules: [{ k: 'age', label: '업허가 후 3~10년', pts: 5, det: 'license' }, { k: 'invest', label: '투자 단계 (시리즈 A~B)', pts: 10, todo: true },
+        { k: 'ipo', label: '상장 전', pts: 5, todo: true }] },
+    { key: 's_signal', ev: 'signal', name: '선행 신호', max: 25, cls: 'c3', bar: 'b3', desc: '최근 90일에 움직임이 있었나',
+      rules: [{ k: 'trial', label: '최근 90일 임상시험 승인', pts: 8, det: 'trial', recent: true }, { k: 'innovation', label: '최근 90일 혁신의료기기 지정', pts: 6, det: 'innovation', recent: true },
+        { k: 'registration', label: '최근 90일 허가', pts: 5, det: 'registration', recent: true }, { k: 'news', label: 'R&D·투자·병원 실증 소식', pts: 6, todo: true }] },
+    { key: 's_wear', ev: 'wear', name: '웨어러블 적합', max: 15, cls: 'c4', bar: 'b4', desc: '우리 관심 분야(착용형·생체신호)와 맞나',
+      rules: [{ k: 'wearable', label: '제품·사용 목적에 착용형 표현', pts: 8, det: 'wear_terms' }, { k: 'biosignal', label: '생체신호 측정', pts: 4, det: 'bio_terms' },
+        { k: 'keyword', label: '관심 키워드 일치', pts: 3 }] }
+  ];
+  function cleanName(n) { return String(n || '').split('·').pop().split(',')[0].trim(); }
+  function ymd(d) { return d ? String(d).slice(0, 10) : ''; }
+  function detLines(r, rule, asOf) {
+    var d = (r.evidence && r.evidence.details) || {};
+    if (rule.todo) return ['수집 준비 중 (DART·투자·뉴스 연결 후 반영)'];
+    if (rule.det === 'license') {
+      if (!d.license_first) return ['업허가 정보 없음'];
+      var y = Math.floor((new Date(asOf || D.today()) - new Date(d.license_first)) / (365.25 * 864e5));
+      return ['업허가 ' + ymd(d.license_first) + ' · 업력 ' + y + '년'];
+    }
+    if (rule.det === 'wear_terms' || rule.det === 'bio_terms') return (d[rule.det] || []).length ? ['찾은 말: ' + d[rule.det].join(', ')] : [];
+    var lst = d[rule.det] || [];
+    if (rule.recent) { var lim = D.addDays(asOf || D.today(), -90); lst = lst.filter(function (x) { return ymd(x.date) > lim; }); }
+    return lst.map(function (x) { return cleanName(x.name) + (x.kind ? ' · ' + x.kind : '') + (x.date ? ' (' + ymd(x.date) + ')' : ''); });
+  }
+  function rulePts(r, c, rule) {
+    var t = r.evidence && r.evidence[c.ev] && r.evidence[c.ev][rule.k];
+    if (!t) return 0;
+    var m = /\+(\d+)\s*$/.exec(t); return m ? Number(m[1]) : rule.pts;
+  }
+  /* 4가지 항목 카드: 항목 점수 + 기준마다 ✓/— · 점수 · 근거 세부 */
+  D.scoreBreakdown = function (r, asOf) {
+    return h('div', { class: 'sb-grid' }, D.SCORE_CRIT.map(function (c) {
+      var v = r[c.key] || 0;
+      return h('section', { class: 'sb-card ' + c.cls },
+        h('div', { class: 'sb-head' }, h('b', { text: c.name }), h('span', { class: 'sb-score' }, h('b', { text: v }), ' / ' + c.max)),
+        h('div', { class: 'sb-bar' }, D.width(h('i', { class: c.bar }), Math.round(v / c.max * 100))),
+        h('p', { class: 'note sb-desc', text: c.desc }),
+        h('ul', { class: 'sb-rules' }, c.rules.map(function (rule) {
+          var p = rulePts(r, c, rule), ok = p > 0, lines = detLines(r, rule, asOf);
+          return h('li', { class: ok ? 'ok' : rule.todo ? 'todo' : 'no' },
+            h('span', { class: 'sb-mark', 'aria-label': ok ? '충족' : rule.todo ? '준비 중' : '해당 없음', text: ok ? '✓' : rule.todo ? '…' : '–' }),
+            h('span', { class: 'sb-rule' }, h('span', { class: 'sb-label', text: rule.label }),
+              lines.length ? h('span', { class: 'sb-det' }, lines.slice(0, 3).map(function (x) { return h('span', { text: x }); })) : null),
+            h('span', { class: 'sb-pts', text: ok ? '+' + p : '0' }, h('small', { text: ' / ' + rule.pts })));
+        })));
+    }));
+  };
+  /* 기업별 핵심 요약 한두 줄 (근거 세부에서) */
+  D.companySummary = function (r, asOf) {
+    var d = (r.evidence && r.evidence.details) || {}, out = [];
+    var inv = d.innovation || [], reg = d.registration || [], tr = d.trial || [], ne = d.neca || [];
+    if (inv.length) out.push('혁신의료기기 「' + cleanName(inv[0].name) + '」' + (inv.length > 1 ? ' 등 ' + inv.length + '건' : '') + ' 지정');
+    if (ne.length) out.push('NECA ' + (ne[0].kind || '평가') + ' 「' + cleanName(ne[0].name) + '」');
+    if (reg.length) out.push('허가 「' + cleanName(reg[0].name) + '」' + (reg[0].date ? '(' + ymd(reg[0].date).slice(2).replace(/-/g, '.') + ')' : ''));
+    var lim = D.addDays(asOf || D.today(), -90);
+    if (tr.some(function (x) { return ymd(x.date) > lim; })) out.push('최근 90일 임상시험 승인');
+    var terms = (d.wear_terms || []).concat(d.bio_terms || []);
+    if (terms.length) out.push(terms.slice(0, 3).join('·') + ' 관련');
+    return out.join(' · ');
+  };
+  /* 평가 기준 팝업: 4가지 기준 설명 + 이 기업의 기준별 점수와 현황 */
+  D.openScoreDialog = function (sc, name) {
+    var dlg = h('dialog', { class: 'dialog wide', 'aria-labelledby': 'sd-h' },
+      h('div', { class: 'card-head' }, h('h2', { id: 'sd-h', text: '조기 발굴 점수 평가 기준' + (name ? ' — ' + name : '') }),
+        h('button', { type: 'button', class: 'btn small right', text: '닫기', onclick: function () { dlg.close(); } })),
+      h('div', { class: 'dialog-body' },
+        sc ? h('div', { class: 'sd-total' }, h('span', { class: 'score-big', text: sc.total }), h('span', { class: 'score-of', text: '/ 100' }),
+          sc.rank ? h('span', { class: 'score-rank', text: sc.rank + '위' }) : null,
+          h('span', { class: 'note', text: '4가지 항목 합계 · 매일 다시 계산 · 임시 배점 v0 (확정 전)' })) : null,
+        sc ? D.scoreBreakdown(sc) : D.empty('이 기업은 점수를 계산할 신호가 아직 없습니다.'),
+        h('p', { class: 'note', text: '✓ = 이 기업이 충족한 기준 · – = 해당 없음 · … = 자료 수집 준비 중인 기준 (아직 점수에 넣지 않음)' })));
+    dlg.addEventListener('close', function () { dlg.remove(); });
+    document.body.appendChild(dlg);
+    dlg.showModal();
+  };
+
   function lastDate(lst, k) { return lst && lst.length ? lst.map(function (x) { return x[k]; }).filter(Boolean).sort().pop() : null; }
   function kindsOf(tl) { var k = {}; tl.forEach(function (f) { (k[f.kind] = k[f.kind] || []).push(f); }); return k; }
 
   // ---- 조기 발굴 점수 (기획안처럼 단순하게: 큰 숫자 + 4색 쌓은 막대 + 항목별 점수) ----
-  function scoreCard(sc) {
+  function scoreCard(sc, name) {
     var card = h('section', { class: 'card score-simple', 'aria-label': '조기 발굴 점수' });
     if (!sc) return D.set(card, h('div', { class: 'card-head' }, h('h2', { text: '조기 발굴 점수' })), D.empty('점수를 계산할 신호가 없습니다.'));
     var stack = h('div', { class: 'score-stack', role: 'img', 'aria-label': CRIT.map(function (c) { return c[0] + ' ' + sc[c[1]]; }).join(', ') });
@@ -38,7 +121,8 @@
       if (sc[c[1]] > 0) stack.appendChild(D.width(h('i', { class: c[4], title: c[0] + ' ' + sc[c[1]] + '점' + (ev ? ' — ' + ev : '') }), sc[c[1]]));
     });
     return D.set(card,
-      h('div', { class: 'card-head' }, h('h2', { text: '조기 발굴 점수' }), h('a', { class: 'right', href: D.root + 'radar.html', text: '평가 기준' })),
+      h('div', { class: 'card-head' }, h('h2', { text: '조기 발굴 점수' }),
+        h('button', { type: 'button', class: 'btn small right', text: '평가 기준', onclick: function () { D.openScoreDialog(sc, name); } })),
       h('div', { class: 'score-row' }, h('span', { class: 'score-big', text: sc.total }), h('span', { class: 'score-of', text: '/ 100' }),
         h('span', { class: 'score-rank', text: sc.rank + '위' }),
         h('span', { class: sc.delta > 0 ? 'delta-up' : sc.delta < 0 ? 'delta-down' : 'delta-same', text: sc.delta > 0 ? '▲ ' + sc.delta : sc.delta < 0 ? '▼ ' + Math.abs(sc.delta) : '전날과 같음' })),
@@ -83,38 +167,58 @@
         sc && sc.field ? [h('dt', { text: '주요 분야' }), h('dd', { text: sc.field })] : null));
   }
 
-  // ---- 통계 + 그래프 (연도별 허가·지정·임상 | 최근 12개월 소식) ----
-  function statsCard(data, all, news, onPick) {
+  // ---- 통계 + 그래프 (연도별 허가·지정·임상 막대 | 월별 소식 꺾은선, 기간 고르기) ----
+  function monthsBetween(from, to) {
+    var out = [], y = Number(from.slice(0, 4)), m = Number(from.slice(5, 7)), ey = Number(to.slice(0, 4)), em = Number(to.slice(5, 7));
+    while (y < ey || (y === ey && m <= em)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } }
+    return out;
+  }
+  function statsCard(data, st, onPick, periodBar) {
     var thisYear = Number(D.today().slice(0, 4));
     var dates = [].concat(data.registrations.map(function (r) { return r.approval_date; }), data.innovations.map(function (r) { return r.designation_date; }),
       data.trials.map(function (r) { return r.approval_date; })).filter(Boolean).map(function (d) { return Number(String(d).slice(0, 4)); });
     var first = Math.max(Math.min.apply(null, [thisYear - 4].concat(dates)), thisYear - 9), years = [];
     for (var y = first; y <= thisYear; y++) years.push(y);
     function perYear(lst, k) { return years.map(function (yy) { return lst.filter(function (x) { return String(x[k] || '').slice(0, 4) === String(yy); }).length; }); }
-    // 최근 12개월 (이번 달 포함)
-    var months = [], d0 = new Date(D.today().slice(0, 7) + '-01T00:00:00Z');
-    for (var m = 11; m >= 0; m--) { var dm = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - m, 1)); months.push(dm.toISOString().slice(0, 7)); }
-    function perMonth(lst) { return months.map(function (mm) { return lst.filter(function (x) { return String(x.item_date || '').slice(0, 7) === mm; }).length; }); }
-    var nonNews = all.filter(function (f) { return !/^news:/.test(f.item_key); });
+    // 기간이 길면 분기·연 단위로 묶어 그림 (3년 넘으면 분기, 10년 넘으면 연)
+    var months = monthsBetween(st.from, st.to);
+    var unit = months.length > 120 ? 'year' : months.length > 36 ? 'q' : 'm';
+    function bucket(ym) { if (unit === 'year') return ym.slice(0, 4); if (unit === 'q') return ym.slice(0, 4) + 'Q' + (Math.floor((Number(ym.slice(5, 7)) - 1) / 3) + 1); return ym; }
+    var buckets = []; months.forEach(function (mm) { var b = bucket(mm); if (buckets[buckets.length - 1] !== b) buckets.push(b); });
+    function perMonth(lst) { var c = {}; lst.forEach(function (x) { var k = bucket(String(x.item_date || '').slice(0, 7)); c[k] = (c[k] || 0) + 1; }); return buckets.map(function (b) { return c[b] || 0; }); }
+    function bLabel(b) { return unit === 'm' ? b.slice(2, 4) + '.' + b.slice(5) : unit === 'q' ? b.slice(2, 4) + '.' + b.slice(4) : b; }
+    var nonNews = st.all.filter(function (f) { return !/^news:/.test(f.item_key); });
     function kpi(label, n, note, cls, tab) {
       var inner = [h('span', { class: 'kpi-label' }, cls ? h('i', { class: 'sw ' + cls }) : null, label),
         h('b', { class: 'kpi-num' }, D.num(n), h('small', { text: '건' })), h('span', { class: 'note', text: note || '' })];
       return tab ? h('button', { type: 'button', class: 'kpi-cell clickable', onclick: function () { onPick(tab); } }, inner) : h('div', { class: 'kpi-cell' }, inner);
     }
     function recent(lst, k) { var l = lastDate(lst, k); return l ? '최근 ' + D.fmt(l) : ''; }
-    return h('section', { class: 'card', 'aria-label': '통계' },
+    return h('section', { class: 'card co-stats', 'aria-label': '통계' },
+      h('div', { class: 'stats-head' }, h('h2', { text: '통계' }), h('span', { class: 'note', text: '소식 기간' }), periodBar),
       h('div', { class: 'kpi-row' },
         kpi('허가 제품', data.registrations.length, recent(data.registrations, 'approval_date'), 's1', '허가 제품'),
         kpi('혁신의료기기 지정', data.innovations.length, recent(data.innovations, 'designation_date'), 's2', '혁신의료기기'),
         kpi('임상시험 승인', data.trials.length, recent(data.trials, 'approval_date'), 's3', '임상시험'),
-        kpi('최근 1년 소식', all.length, '인허가·연구 ' + nonNews.length + ' · 뉴스 ' + news.length, null, '전체 소식')),
+        kpi(st.label + ' 소식', st.all.length, '인허가·연구 ' + nonNews.length + ' · 뉴스 ' + st.news.length, null, '모든 소식')),
       h('div', { class: 'chart-pair' },
-        D.barChart({ title: '연도별 허가·지정·임상 건수', labels: years.map(String), unit: '건', height: 220, width: 680,
+        D.barChart({ title: '연도별 허가·지정·임상 건수 (전체 기간)', labels: years.map(String), unit: '건', height: 230, width: 600,
           series: [{ name: '허가', values: perYear(data.registrations, 'approval_date'), cls: 's1' },
             { name: '혁신 지정', values: perYear(data.innovations, 'designation_date'), cls: 's2' },
             { name: '임상 승인', values: perYear(data.trials, 'approval_date'), cls: 's3' }] }),
-        D.barChart({ title: '최근 12개월 소식 건수', labels: months.map(function (mm) { return mm.slice(2, 4) + '.' + mm.slice(5); }), unit: '건', height: 220, width: 560,
-          series: [{ name: '인허가·연구', values: perMonth(nonNews), cls: 's4' }, { name: '뉴스', values: perMonth(news), cls: 's5' }] })));
+        h('div', null,
+          D.lineChart({ title: (unit === 'm' ? '월별' : unit === 'q' ? '분기별' : '연도별') + ' 소식 건수 (' + st.label + ')', labels: buckets.map(bLabel), unit: '건', height: 230, width: 600,
+            series: [{ name: '인허가·연구', values: perMonth(nonNews), cls: 's4' }, { name: '뉴스', values: perMonth(st.news), cls: 's5' }] }))));
+  }
+  /* 최근 90일 신호 (기업 레이더 오른쪽 패널과 같은 내용) */
+  function recentCard(all, onAll) {
+    var lim = D.addDays(D.today(), -90);
+    var r90 = all.filter(function (f) { return f.item_date >= lim; });
+    return h('section', { class: 'card recent-card' }, h('div', { class: 'card-head' }, h('h2', { text: '최근 90일 신호' }), h('span', { class: 'badge gray', text: r90.length }),
+      onAll ? h('button', { type: 'button', class: 'btn small right', text: '모든 소식 보기', onclick: onAll }) : null),
+      h('div', { class: 'recent-list' }, r90.slice(0, 12).map(function (f) { return D.feedItem(f, { noDetail: true, noStar: true }); }),
+        r90.length ? null : D.empty('최근 90일 신호가 없습니다.')),
+      r90.length > 12 ? h('p', { class: 'note', text: '최근 12건만 보입니다. 나머지는 아래 「모든 소식」에서 봅니다.' }) : null);
   }
 
   // ---- 탭 내용 ----
@@ -232,54 +336,88 @@
   }
 
   // ---- 화면 전체 ----
-  D.renderCompany = function (box, data, opts) {
-    var o = opts || {};
-    var c = data.company, sc = data.score, tl = data.timeline || [], kinds = kindsOf(tl);
-    var newsRows = (data.news || []).map(function (n) { return Object.assign({ category: 'market', kind: '뉴스', company_id: null, company_name: null }, n); });
-    // 같은 기사(여러 언론사가 쓴 같은 사건)는 1건으로, 나머지는 '외 N건'
-    var newsGroups = D.groupSame(newsRows, true);
-    var news = newsGroups.map(function (g) { return g.f; });
-    // 전체 소식 = 인허가·연구(최근 1년) + 기업 뉴스(묶음), 날짜 최신순
+  var PERIODS = [[12, '최근 12개월'], [24, '최근 2년'], [36, '최근 3년'], [0, '전체']];
+  function groupAll(tl, newsRaw) {
+    var newsRows = (newsRaw || []).map(function (n) { return Object.assign({ category: 'market', kind: '뉴스', company_id: null, company_name: null }, n); });
+    var newsGroups = D.groupSame(newsRows, true);   // 같은 기사는 1건, 나머지 '외 N건'
     var allGroups = tl.map(function (f) { return { f: f, dups: [] }; }).concat(newsGroups)
       .sort(function (a, b) { return String(b.f.item_date || '').localeCompare(String(a.f.item_date || '')); });
-    var all = allGroups.map(function (g) { return g.f; });
-    var neca = tl.filter(function (f) { return NECA.indexOf(f.kind) >= 0; });
+    return { tl: tl, newsGroups: newsGroups, news: newsGroups.map(function (g) { return g.f; }), allGroups: allGroups,
+      all: allGroups.map(function (g) { return g.f; }), neca: tl.filter(function (f) { return NECA.indexOf(f.kind) >= 0; }) };
+  }
+  D.renderCompany = function (box, data, opts) {
+    var o = opts || {};
+    var c = data.company, sc = data.score, kinds = kindsOf(data.timeline || []);
+    var base = groupAll(data.timeline || [], data.news);           // 처음 불러온 최근 1년 (최근 90일 신호에 씀)
+    var st = Object.assign(groupAll(data.timeline || [], data.news), { from: D.addDays(D.today(), -365), to: D.today(), label: '최근 12개월', months: 12 });
     function anyNew(lst) { return lst.some(function (r) { return D.isNew(r.collected_at, 'emedi'); }); }
     var TABS = [
-      ['전체 소식', all.length, all.some(D.isNewItem), function () { return more(allGroups, function (g) { return D.listEntry(g, { files: {}, q: '' }); }, 20); }],
-      ['혁신의료기기', data.innovations.length, anyNew(data.innovations), function () { return innovationCards(data.innovations); }],
-      ['허가 제품', data.registrations.length, anyNew(data.registrations), function () { return registrationTable(data.registrations); }],
-      ['임상시험', data.trials.length, anyNew(data.trials), function () { return trialList(data.trials); }],
-      ['NECA 평가·유예', neca.length, neca.some(D.isNewItem), function () { return neca.length ? neca.map(function (f) { return D.feedItem(f); }) : D.empty('NECA 평가·유예 정보가 없습니다.'); }],
-      ['뉴스', news.length, news.some(D.isNewItem), function () { return newsList(newsGroups); }]
+      ['모든 소식', function () { return st.all.length; }, function () { return st.all.some(D.isNewItem); }, function () {
+        return [h('p', { class: 'note tab-help', text: '이 기업과 관련된 인허가·임상·NECA·뉴스 등 모든 출처의 소식을 날짜순으로 모아 봅니다 (' + st.label + ', ' + D.fmt(st.from) + ' ~ ' + D.fmt(st.to) + ').' }),
+          more(st.allGroups, function (g) { return D.listEntry(g, { files: {}, q: '' }); }, 20)]; }],
+      ['혁신의료기기', function () { return data.innovations.length; }, function () { return anyNew(data.innovations); }, function () { return innovationCards(data.innovations); }],
+      ['허가 제품', function () { return data.registrations.length; }, function () { return anyNew(data.registrations); }, function () { return registrationTable(data.registrations); }],
+      ['임상시험', function () { return data.trials.length; }, function () { return anyNew(data.trials); }, function () { return trialList(data.trials); }],
+      ['NECA 평가·유예', function () { return st.neca.length; }, function () { return st.neca.some(D.isNewItem); }, function () { return st.neca.length ? st.neca.map(function (f) { return D.feedItem(f); }) : D.empty('이 기간에 NECA 평가·유예 정보가 없습니다.'); }],
+      ['뉴스', function () { return st.news.length; }, function () { return st.news.some(D.isNewItem); }, function () { return newsList(st.newsGroups); }]
     ];
     var tabBody = h('div', { role: 'tabpanel', id: 'tab-body-' + c.company_id });
     var tabBar = h('div', { class: 'tabs wrap-tabs', role: 'tablist', 'aria-label': '기업 자료' });
     var tabCard = h('section', { class: 'card', 'aria-label': '기업 자료' }, tabBar, tabBody);
-    function pick(i) {
-      tabBar.querySelectorAll('.tab').forEach(function (b, j) { b.setAttribute('aria-selected', j === i ? 'true' : 'false'); });
-      D.set(tabBody, TABS[i][3]());
+    var cur = 0;
+    function drawTabs() {
+      D.set(tabBar, TABS.map(function (t, i) {
+        return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': i === cur ? 'true' : 'false', onclick: function () { pick(i); } },
+          t[0], h('span', { class: 'badge gray', text: t[1]() }), t[2]() ? D.newDot(t[0] + '에 새로 들어온 정보가 있습니다') : null);
+      }));
     }
-    function pickByName(n) { for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === n) { pick(i); tabCard.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; } }
-    TABS.forEach(function (t, i) {
-      tabBar.appendChild(h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': 'false', onclick: function () { pick(i); } },
-        t[0], h('span', { class: 'badge gray', text: t[1] }), t[2] ? D.newDot(t[0] + '에 새로 들어온 정보가 있습니다') : null));
-    });
+    function pick(i) { cur = i; drawTabs(); D.set(tabBody, TABS[i][3]()); }
+    function pickByName(n) {
+      if (n === '전체 소식') n = '모든 소식';
+      for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === n) { pick(i); tabCard.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+    }
     var star = D.favButton('company', c.company_id, c.company_name, { text: true });
     if (o.mode === 'brief') {
-      var recent90 = all.filter(function (f) { return f.item_date >= D.addDays(D.today(), -90); });
-      D.set(box, infoCard(data, sc, star), scoreCard(sc), statusCard(data, kinds, function (n) { if (o.onExpand) o.onExpand(n); }),
+      D.set(box, infoCard(data, sc, star), scoreCard(sc, c.company_name), statusCard(data, kinds, function (n) { if (o.onExpand) o.onExpand(n); }),
         data.innovations.length ? innovationSlider(data.innovations) : null,
-        h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', { text: '최근 90일 소식' }),
-          h('button', { type: 'button', class: 'btn small right', text: '전체 보기 (' + all.length + ')', onclick: function () { if (o.onExpand) o.onExpand('전체 소식'); } })),
-          recent90.slice(0, 8).map(function (f) { return D.feedItem(f, { noDetail: true, noStar: true }); }),
-          recent90.length ? null : D.empty('최근 90일 소식이 없습니다.')));
+        recentCard(base.all, function () { if (o.onExpand) o.onExpand('모든 소식'); }));
       return;
     }
+    // 기간 고르기 (기본 최근 12개월, 12개월 이전도 볼 수 있음)
+    var fromIn = h('input', { class: 'input small', type: 'date', value: st.from, max: D.today(), 'aria-label': '시작일' });
+    var toIn = h('input', { class: 'input small', type: 'date', value: st.to, max: D.today(), 'aria-label': '끝일' });
+    var pmsg = h('span', { class: 'note', role: 'status' });
+    var periodBar = h('div', { class: 'period-bar' },
+      h('span', { class: 'chips', role: 'group', 'aria-label': '기간' }, PERIODS.map(function (p) {
+        return h('button', { type: 'button', class: 'chip small', 'data-m': p[0], 'aria-pressed': p[0] === 12 ? 'true' : 'false', text: p[1],
+          onclick: function () { setPeriod(p[0] ? D.addDays(D.today(), -Math.round(p[0] * 30.44)) : '2000-01-01', D.today(), p[1], p[0]); } });
+      })),
+      h('span', { class: 'chips nowrap' }, fromIn, '~', toIn,
+        h('button', { type: 'button', class: 'btn small', text: '기간 적용', onclick: function () {
+          if (!fromIn.value || !toIn.value || fromIn.value > toIn.value) { pmsg.textContent = '시작일이 끝일보다 앞이어야 합니다.'; return; }
+          setPeriod(fromIn.value, toIn.value, D.fmt(fromIn.value) + '~' + D.fmt(toIn.value), -1);
+        } })), pmsg);
+    var statsBox = h('div', { class: 'stats-box' });
+    async function setPeriod(from, to, label, m) {
+      periodBar.querySelectorAll('[data-m]').forEach(function (b) { b.setAttribute('aria-pressed', Number(b.getAttribute('data-m')) === m ? 'true' : 'false'); });
+      pmsg.textContent = '불러오는 중…';
+      try {
+        var r = await D.rpc('dash_company_activity', { p_company_id: c.company_id, p_from: from, p_to: to });
+        var g = groupAll(r.timeline || [], r.news);
+        Object.assign(st, g, { from: r.from || from, to: r.to || to, label: label, months: m });
+        if (m === 0 && st.all.length) st.from = st.all.map(function (f) { return f.item_date; }).filter(Boolean).sort()[0] || st.from;
+        fromIn.value = st.from; toIn.value = st.to;
+        pmsg.textContent = '';
+        drawStats(); pick(cur);
+      } catch (e) { pmsg.textContent = '불러오지 못했습니다: ' + ((e && e.message) || e); }
+    }
+    function drawStats() { D.set(statsBox, statsCard(data, st, pickByName, periodBar)); }
     D.set(box,
-      h('div', { class: 'detail-row' }, infoCard(data, sc, star), h('div', { class: 'detail-col' }, scoreCard(sc), statusCard(data, kinds, pickByName))),
-      statsCard(data, all, news, pickByName), tabCard);
-    pick(o.tab ? Math.max(0, TABS.map(function (t) { return t[0]; }).indexOf(o.tab)) : 0);
+      h('div', { class: 'detail-row' }, infoCard(data, sc, star), h('div', { class: 'detail-col' }, scoreCard(sc, c.company_name), statusCard(data, kinds, pickByName))),
+      h('div', { class: 'detail-row2' }, recentCard(base.all, function () { pickByName('모든 소식'); }), statsBox),
+      tabCard);
+    drawStats();
+    pick(o.tab ? Math.max(0, TABS.map(function (t) { return t[0]; }).indexOf(o.tab === '전체 소식' ? '모든 소식' : o.tab)) : 0);
   };
 
   /* 기업 레이더: 오른쪽 패널. [크게 보기] = 전체 화면으로 바꿔 상세 전체를 보여 줌 */
