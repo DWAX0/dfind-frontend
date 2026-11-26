@@ -67,7 +67,8 @@
   D.titleKey = function (t) {
     var s = D.clean(t || '');
     for (var n = 0; n < 3; n++) s = s.replace(/^\s*(\[[^\]]{1,15}\]|【[^】]{1,15}】|<[^>]{1,15}>|\([^)]{1,10}\))\s*/, '');
-    s = s.replace(/\s+[-|│ㅣ]\s*[^-|│ㅣ]{1,15}$/, '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+    for (var m = 0; m < 2; m++) s = s.replace(/\s+[-|│ㅣ]\s*[^-|│ㅣ]{1,15}$/, '').replace(/\s*(\[[^\]]{1,12}\]|【[^】]{1,12}】|\([^)]{1,12}\))\s*$/, '');  // 끝의 언론사 꼬리
+    s = s.toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
     return s.length >= 8 ? s : null;
   };
   function leadRank(f) {
@@ -93,6 +94,33 @@
       var f = g.all.length > 1 ? Object.assign({}, lead, { first_seen: first }) : lead;
       return { f: f, dups: g.all.filter(function (x) { return x !== lead; }) };
     });
+  };
+  /* 같은 기사 묶기 기준 (common/news_dedup.py 와 같은 내용, 화면에서 펼쳐 봄) */
+  D.dupRules = function () {
+    var li = function (t) { return h('li', { text: t }); };
+    return h('details', { class: 'card dup-rules' }, h('summary', null, '같은 기사 묶기 기준 보기'),
+      h('div', { class: 'dup-rules-body' },
+        h('h3', { text: '같은 기사로 보는 경우 (하나라도 맞으면 묶음)' }),
+        h('ul', null,
+          li('제목이 완전히 같음: 언론사 꼬리("- 의학신문", "| 머니투데이", 끝의 "[의학신문]"·"(종합)")와 말머리("[단독]"), 기호를 뗀 뒤 8글자 이상이 똑같으면 같은 기사'),
+          li('핵심 단어 겹침 (기본 기준): 제목의 핵심 단어가 3개 이상, 그리고 짧은 쪽 제목 단어의 60% 이상 겹침'),
+          li('보조 기준 (발행일 2일 이내 기사끼리만): 같은 투자 금액(예: "250억") + 핵심 단어 1개 이상 겹침, 또는 핵심 단어 2개 이상 + 짧은 쪽의 40% 이상 겹침'),
+          li('A≈B, B≈C 이면 A·B·C 를 한 묶음으로 봄')),
+        h('h3', { text: '핵심 단어에서 빼는 말' }),
+        h('ul', null,
+          li('어느 기사에나 나오는 말 약 230개: 투자·유치·억원·시리즈·디지털헬스케어·의료기기·허가·승인·임상·웨어러블·식약처·플랫폼·솔루션·출시·협약 등 (그래서 "웨어러블"만 같다고 묶이지 않음)'),
+          li('2글자 미만 단어, 숫자로 시작하는 말(250억·3년), 3글자 이하 영문 약어(FDA·CEO), "시리즈C"·"프리A" 같은 투자 단계'),
+          li('조사·어미를 뗀 뒤 비교 ("엔젤로보틱스는" = "엔젤로보틱스")')),
+        h('h3', { text: '묶지 않는 것' }),
+        h('ul', null,
+          li('인허가·DART 공시: 건마다 다른 사건이라 묶지 않음 (뉴스만 묶음)'),
+          li('"이번 주 투자 결산", "○곳", "총정리", "주간" 같은 라운드업 기사: 단어 비교에서 빼고, 제목이 완전히 같을 때만'),
+          li('영문 논문 제목: 완전히 같을 때만')),
+        h('h3', { text: '대표 기사와 건수' }),
+        h('ul', null,
+          li('대표: 투자 > 병원 협력 > R&D 과제 > 전시·해외 > 뉴스 > 논문·연구 → 기업명 있음 → 금액 있음 → 언론사 RSS → 먼저 나온 기사. 나머지는 "외 N건"으로 접음'),
+          li('건수·NEW·메일·오늘의 결론에서 묶음은 1건. NEW 는 묶음에서 처음 들어온 기사 기준 (이미 본 사건의 후속 보도는 NEW 아님)'),
+          li('묶음 계산: 뉴스 수집(3시간마다)이 끝날 때 최근 30일 기사로 다시 계산'))));
   };
   /* 뉴스 item_key → 묶음 키 (서버) */
   D.loadNewsGroups = async function (rows) {
@@ -135,7 +163,7 @@
       onclick: function (e) { ctx.group = !ctx.group; e.currentTarget.setAttribute('aria-pressed', ctx.group ? 'true' : 'false');
         e.currentTarget.textContent = '같은 기사 묶기: ' + (ctx.group ? '켜짐' : '꺼짐'); drawTiles(); drawList(); } }, '같은 기사 묶기: 켜짐') : null;
     D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + (o.dot || o.category), right: right }),
-      o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, panel.el, tiles, listCard);
+      o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, o.groupable ? D.dupRules() : null, panel.el, tiles, listCard);
     panel.start();
 
     async function load(r) {
