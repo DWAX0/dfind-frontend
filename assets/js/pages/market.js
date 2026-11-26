@@ -1,35 +1,49 @@
-/* 05 시장·투자 동향: 언론사 RSS · 네이버 뉴스 (투자·병원 협력·전시)
-   [주요 뉴스] 많이 보도된 소식 3건 (요약 포함) → [종류별 표] 제목 · 구분 · 언론사 · 게재일 */
+/* 05 뉴스: 언론사 RSS · 네이버 뉴스
+   분류 = 관리자 › 기준 정보 › 뉴스 분류 의 키워드로 정함 (그 외는 경쟁사·파트너사), 공통 태그 AI
+   [주요 뉴스] 많이 보도된 소식 3건 (요약 포함) → [분류별 표] 대표 키워드 · 매체명 · 기사명 · 업로드 일자
+   기사명을 누르면 바로 언론사 원문 (새 창) */
 (function () {
   'use strict';
   var h = D.h;
-  var KINDS = ['투자', '병원 협력', '전시·해외', 'R&D 과제', '논문·연구', '뉴스'];
+  var KINDS = ['인허가·정책', '투자', '병원·임상', '연구·R&D', '제품·출시', '전시·해외', '경쟁사·파트너사'];
 
-  function titleCell(g, q) {
+  // 기사명 링크: 원문(언론사)으로 바로, 새 창. 주소가 없을 때만 대시보드 상세
+  function articleLink(f, cls) {
+    var t = D.clean(f.title) || '(제목 없음)';
+    return f.url ? h('a', { class: cls, href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '언론사 원문 (새 창)', text: t })
+                 : h('a', { class: cls, href: D.itemHref(f.item_key), text: t });
+  }
+  function tagOf(ctx, f) { return (ctx.tags || {})[f.item_key] || {}; }
+  function aiTag(ctx, g) {
+    return [g.f].concat(g.dups).some(function (f) { return tagOf(ctx, f).ai; }) ? h('span', { class: 'kw kw-ai', title: '공통 태그: AI·인공지능·딥러닝 등', text: 'AI' }) : null;
+  }
+  function topicChip(ctx, f) {
+    var t = tagOf(ctx, { item_key: f.kind_from || f.item_key });
+    return h('span', { class: 'kw kw-topic', title: t.term ? '‘' + t.term + '’ 키워드로 분류' : '분류 키워드가 없는 기사', text: f.kind || '경쟁사·파트너사' });
+  }
+
+  function titleCell(g, q, ctx) {
     var f = g.f;
     return h('td', { class: 'news-title' },
-      h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' }),
+      articleLink(f, 'list-title'),
       D.isNewItem(f) ? D.badge('NEW', 'new') : null,
+      aiTag(ctx, g),
       D.foundInside(f, q) ? D.badge('본문에서 찾음', 'warn') : null,
       f.company_name ? h('span', { class: 'list-meta' }, D.companyLink(f.company_id, f.company_name)) : null,
       D.dupToggle(g.dups));
   }
-  function kwOf(ctx, g) {
-    var all = [];
-    [g.f].concat(g.dups).forEach(function (f) { (ctx.kw[f.item_key] || []).forEach(function (k) { if (!all.some(function (x) { return x.keyword === k.keyword; })) all.push(k); }); });
-    return all;
-  }
   function table(groups, ctx, opts) {
     var o = opts || {};
     return h('div', { class: 'table-wrap' }, h('table', { class: 'grid news-table' },
-      h('thead', null, h('tr', null, h('th', { scope: 'col', text: '제목' }), h('th', { scope: 'col', class: 'w-kw', text: '키워드' }),
-        h('th', { scope: 'col', class: 'w-pub', text: '언론사' }), h('th', { scope: 'col', class: 'w-date', text: '게재일' }), h('th', { scope: 'col', class: 'w-star' }, h('span', { class: 'sr', text: '스크랩' })))),
+      h('thead', null, h('tr', null, h('th', { scope: 'col', class: 'w-topic', text: '대표 키워드' }), h('th', { scope: 'col', class: 'w-pub', text: '매체명' }),
+        h('th', { scope: 'col', text: '기사명' }), h('th', { scope: 'col', class: 'w-date', text: '업로드 일자' }), h('th', { scope: 'col', class: 'w-star' }, h('span', { class: 'sr', text: '스크랩' })))),
       h('tbody', null, groups.map(function (g) {
         var f = g.f;
-        return h('tr', null, titleCell(g, ctx.q),
-          h('td', null, ctx.kw ? D.keywordChips(kwOf(ctx, g), 3) : h('span', { class: 'note', text: '…' })),
-          h('td', { text: f.source_label || '' }),
-          h('td', { class: 'nowrap', text: D.fmt(f.item_date) }),
+        return h('tr', null,
+          h('td', null, topicChip(ctx, f)),
+          h('td', { class: 'nowrap', text: f.source_label || '' }),
+          titleCell(g, ctx.q, ctx),
+          h('td', { class: 'nowrap', text: f.item_date || '' }),
           h('td', null, D.favButton('item', f.item_key, D.clean(f.title), { small: true })));
       }))), o.more || null);
   }
@@ -42,10 +56,9 @@
       h('div', { class: 'lead-list' }, top.map(function (g, i) {
         var f = g.f;
         return h('article', { class: 'lead-item' + (i === 0 ? ' first' : '') },
-          h('div', { class: 'list-meta' }, D.catBadge(f.category, f.kind), D.isNewItem(f) ? D.badge('NEW', 'new') : null,
-            ctx.kw ? D.keywordChips(kwOf(ctx, g), 3) : null,
+          h('div', { class: 'list-meta' }, topicChip(ctx, f), D.isNewItem(f) ? D.badge('NEW', 'new') : null, aiTag(ctx, g),
             D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })),
-          h('a', { class: 'lead-title', href: D.itemHref(f.item_key), text: D.clean(f.title) }),
+          articleLink(f, 'lead-title'),
           f.detail ? h('p', { class: 'lead-summary', text: D.clean(f.detail).slice(0, i === 0 ? 260 : 140) }) : null,
           h('p', { class: 'note' }, [f.source_label, D.fmt(f.item_date)].filter(Boolean).join(' · '),
             g.dups.length ? ' · 외 ' + g.dups.length + '건 (같은 기사)' : '',
@@ -56,18 +69,19 @@
   D.categoryPage({
     page: 'market', category: null, dot: 'market', title: '뉴스', defaultPer: '7', groupable: true,
     only: function (f) { return /^news:/.test(f.item_key); },
-    sub: '수집한 기사 전체 — 투자 · 병원 협력 · 전시 · R&D · 논문 · 업계 뉴스 (기사 날짜 기준) · 같은 기사는 한 줄로 묶고 \'외 N건\'으로 접음 (건수·NEW 도 1건)',
+    sub: '수집한 기사 전체 — 분류 키워드로 인허가·정책 · 투자 · 병원·임상 · 연구·R&D · 제품·출시 · 전시·해외, 그 외는 경쟁사·파트너사 (기사 날짜 기준) · 같은 기사는 매체력이 높은 언론사 기사 한 줄로 묶고 \'외 N건\'으로 접음 (건수·NEW 도 1건) · 기사명을 누르면 언론사 원문',
     notice: '네이버 검색 기사는 이용 약관에 따라 20일이 지나면 자동으로 지워집니다. 기사 본문은 저작권 때문에 원본 사이트에서 봅니다. NEW = 마지막 뉴스 수집 이후 새로 들어온 기사.',
     kinds: KINDS,
-    kindNotes: { '투자': '네이버 투자 검색', '병원 협력': '네이버 병원 검색', '전시·해외': '네이버 전시 검색', 'R&D 과제': '네이버 R&D 검색', '논문·연구': '논문 관련 기사', '뉴스': '언론사 RSS 등' },
+    kindNotes: { '인허가·정책': '허가·식약처·수가 등', '투자': '투자 유치·시리즈·IPO 등', '병원·임상': 'MOU·공급계약·임상 등', '연구·R&D': '과제 선정·특허·논문 등',
+                 '제품·출시': '출시·신제품·매출 등', '전시·해외': 'CES·FDA·수출 등', '경쟁사·파트너사': '분류 키워드 없는 기사' },
     searchHint: '기업·제목·기사 요약', emptyText: '이 기간에 시장·투자 소식이 없습니다.',
     renderList: function (card, groups, ctx, api) {
       card.className = 'card';
-      // 키워드는 목록을 새로 불러올 때마다 한 번 (다 오면 다시 그림)
-      if (ctx.kwRows !== ctx.rows) {
-        ctx.kwRows = ctx.rows; ctx.kw = null;
+      // 분류 키워드·AI 태그는 목록을 새로 불러올 때마다 한 번 (다 오면 다시 그림)
+      if (ctx.tagRows !== ctx.rows) {
+        ctx.tagRows = ctx.rows; ctx.tags = null;
         var rows = ctx.rows;
-        D.loadNewsKeywords(rows).then(function (by) { if (ctx.kwRows === rows) { ctx.kw = by; api.redraw(); } });
+        D.loadNewsTags(rows).then(function (by) { if (ctx.tagRows === rows) { ctx.tags = by; api.redraw(); } });
       }
       if (!groups.length) {
         D.set(card, h('h2', { id: 'list-h', text: '뉴스' }), D.empty(ctx.q ? '"' + ctx.q + '" 이(가) 들어간 기사가 없습니다.' : '이 기간에 시장·투자 소식이 없습니다.'));

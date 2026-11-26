@@ -348,7 +348,7 @@
   // ---- 화면 전체 ----
   var PERIODS = [[12, '최근 12개월'], [24, '최근 2년'], [36, '최근 3년'], [0, '전체']];
   function groupAll(tl, newsRaw) {
-    var newsRows = (newsRaw || []).map(function (n) { return Object.assign({ category: 'market', kind: '뉴스', company_id: null, company_name: null }, n); });
+    var newsRows = (newsRaw || []).map(function (n) { return Object.assign({ category: 'market', company_id: null, company_name: null }, n, { kind: n.kind || '경쟁사·파트너사' }); });
     var newsGroups = D.groupSame(newsRows, true);   // 같은 기사는 1건, 나머지 '외 N건'
     var allGroups = tl.map(function (f) { return { f: f, dups: [] }; }).concat(newsGroups)
       .sort(function (a, b) { return String(b.f.item_date || '').localeCompare(String(a.f.item_date || '')); });

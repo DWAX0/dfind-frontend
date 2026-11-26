@@ -115,7 +115,7 @@
     disclosure: { label: '공시', page: 'disclosure.html' }
   };
   D.badge = function (text, cls) { return D.h('span', { class: 'badge ' + (cls || 'gray'), text: text }); };
-  var HOSP = { '병원 협력': 1, '전시·해외': 1 };   // 병원·해외 신호는 초록
+  var HOSP = { '병원 협력': 1, '병원·임상': 1, '전시·해외': 1 };   // 병원·해외 신호는 초록
   D.catBadge = function (cat, text) { return D.badge(text || (D.CAT[cat] || {}).label || cat, HOSP[text] ? 'kind-hosp' : 'cat-' + cat); };
   D.companyHref = function (id) { return D.root + 'company.html?id=' + encodeURIComponent(id); };
   D.companyLink = function (id, name) {
@@ -166,6 +166,16 @@
     try {
       (await D.rpc('dash_news_keywords', { p_keys: keys })).forEach(function (x) { (by[x.item_key] = by[x.item_key] || []).push(x); });
     } catch (e) { console.error(e); }
+    return by;
+  };
+  // 뉴스 분류를 정한 키워드·AI 태그 (dash_news_tags): { 'news:1': { kind, term, ai } }
+  D.loadNewsTags = async function (rows) {
+    var keys = rows.map(function (f) { return f.item_key; }).filter(function (k) { return /^news:/.test(k); });
+    var by = {};
+    for (var i = 0; i < keys.length; i += 1000) {
+      try { (await D.rpc('dash_news_tags', { p_keys: keys.slice(i, i + 1000) })).forEach(function (x) { by[x.item_key] = x; }); }
+      catch (e) { console.error(e); break; }
+    }
     return by;
   };
   /* 키워드 표시: 네이버 검색어로 들어온 것(진하게) 먼저, 제목·본문에서 발견된 것은 옅게. 신호어(투자 등)는 다른 게 없을 때만 */

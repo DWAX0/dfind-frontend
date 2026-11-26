@@ -8,11 +8,12 @@
   var h = D.h;
   var TODAY = D.today();
   var SECURED = ['혁신의료기기 지정', '평가 유예', '신의료기술 평가', '혁신의료기술 평가', '디지털의료기기 허가', '신개발 의료기기 심사', '품목 허가'];
-  var EXPECTED = ['임상시험 승인', '투자', '자금 조달', '계약·수주', '병원 협력', 'R&D 과제', '전시·해외', '논문·연구'];
+  var EXPECTED = ['임상시험 승인', '투자', '자금 조달', '계약·수주', '병원·임상', '연구·R&D', '전시·해외', '병원 협력', 'R&D 과제', '논문·연구'];
+  var NEWS_KINDS = ['인허가·정책', '투자', '병원·임상', '연구·R&D', '제품·출시', '전시·해외', '경쟁사·파트너사', 'R&D 과제', '논문·연구', '병원 협력'];  // 뉴스 화면에서 보는 종류
   // 종류별 칸: 기업 발굴에 쓰는 종류는 0건이어도 늘 보여 줌 (빠진 것처럼 보이지 않게)
   var KINDS = [['혁신의료기기 지정', 'permit'], ['평가 유예', 'permit', '신의료기술 평가 유예'], ['신의료기술 평가', 'permit'], ['혁신의료기술 평가', 'permit'],
-    ['디지털의료기기 허가', 'permit'], ['품목 허가', 'permit', '식약처 품목 허가'], ['임상시험 승인', 'research'], ['R&D 과제', 'research'], ['논문·연구', 'research'],
-    ['투자', 'market'], ['병원 협력', 'market'], ['전시·해외', 'market'],
+    ['디지털의료기기 허가', 'permit'], ['품목 허가', 'permit', '식약처 품목 허가'], ['임상시험 승인', 'research'], ['연구·R&D', 'research', '연구·R&D (뉴스)'],
+    ['인허가·정책', 'market', '인허가·정책 (뉴스)'], ['투자', 'market'], ['병원·임상', 'market', '병원·임상 (뉴스)'], ['제품·출시', 'market'], ['전시·해외', 'market'],
     ['자금 조달', 'disclosure', 'DART 유상증자·전환사채'], ['계약·수주', 'disclosure', 'DART 공급계약'], ['지배구조', 'disclosure', 'DART 최대주주 변경·합병·타법인 취득'], ['실적', 'disclosure', 'DART 실적·정기보고서']];
 
   var titleEl = h('h1', { class: 'title' });
@@ -153,7 +154,7 @@
     var n = {};
     rc.v.forEach(function (x) { n[x.kind] = (n[x.kind] || 0) + Number(x.item_count); });
     D.set(kindTiles, head, h('div', { class: 'kind-grid' }, KINDS.map(function (k) {
-      var page = ['R&D 과제', '논문·연구', '투자', '병원 협력', '전시·해외'].indexOf(k[0]) >= 0 ? 'market.html' : D.CAT[k[1]].page;  // 기사에서 온 종류는 뉴스 화면
+      var page = NEWS_KINDS.indexOf(k[0]) >= 0 ? 'market.html' : D.CAT[k[1]].page;  // 기사에서 온 종류는 뉴스 화면
       return h('a', { class: 'kind-chip' + (n[k[0]] ? ' has' : ''), href: page + '?' + q + '&kind=' + encodeURIComponent(k[0]) },
         h('span', { class: 'dot dot-' + k[1] }), h('span', { class: 'kind-name', text: k[2] || k[0] }), h('b', { text: D.num(n[k[0]] || 0) }));
     })));
@@ -178,7 +179,7 @@
     }
     D.set(sense, head, h('div', { class: 'sense' },
       col('secured', '확보', '혁신의료기기 지정 · 평가 유예 · 신의료기술 · 허가', sec, 'k-secured', 'regulatory.html'),
-      col('expected', '확보 기대', '임상 승인 · R&D · 논문 · 투자(뉴스·DART) · 공급계약 · 병원 협력 · 전시', exp, 'k-expected', 'research.html')));
+      col('expected', '확보 기대', '임상 승인 · 연구·R&D · 투자(뉴스·DART) · 공급계약 · 병원·임상 · 전시·해외', exp, 'k-expected', 'research.html')));
   }
 
   function drawTop(r) {

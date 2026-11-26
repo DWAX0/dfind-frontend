@@ -1,4 +1,4 @@
-/* 관리자 › 기준 정보: 키워드(·비슷한 말) / 언론사 RSS / 언론사 이름 / 사용자·권한 */
+/* 관리자 › 기준 정보: 키워드(·비슷한 말) / 뉴스 분류 / 언론사 RSS / 언론사 이름 / 언론사 우선순위 / 사용자·권한 */
 (async function () {
   'use strict';
   var main = await D.boot('settings', { admin: true });
@@ -14,7 +14,8 @@
   D.set(main, D.header('기준 정보 관리', '수집 키워드, 뉴스를 가져올 언론사, 대시보드 사용자를 관리합니다. 바꾼 내용은 다음 수집부터 반영됩니다.', { admin: true }),
     tabs, msg, panel);
 
-  var TABS = [['kw', '키워드', drawKeywords], ['feed', '언론사 RSS', drawFeeds], ['pub', '언론사 이름', drawPublishers], ['user', '사용자·권한', drawUsers]];
+  var TABS = [['kw', '키워드', drawKeywords], ['topic', '뉴스 분류', drawTopics], ['feed', '언론사 RSS', drawFeeds], ['pub', '언론사 이름', drawPublishers],
+              ['rank', '언론사 우선순위', drawRanks], ['user', '사용자·권한', drawUsers]];
   function drawTabs() {
     D.set(tabs, TABS.map(function (t) {
       return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': tab === t[0] ? 'true' : 'false', text: t[1],
@@ -221,6 +222,101 @@
       h('details', { class: 'pub-all' }, h('summary', { text: '등록된 언론사 ' + names.length + '곳 보기 · 고치기' }),
         h('div', { class: 'top' }, q), listBox));
     drawList();
+  }
+
+  // ---- 뉴스 분류 키워드 (news_topic_terms): 바꾸면 모든 기사를 바로 다시 분류 ----
+  var TOPICS = [['policy', '① 인허가·정책'], ['investment', '② 투자'], ['hospital', '③ 병원·임상'], ['rnd', '④ 연구·R&D'],
+                ['product', '⑤ 제품·출시'], ['exhibition', '⑥ 전시·해외'], ['ai', '공통 태그 AI']];
+  async function drawTopics() {
+    var terms;
+    try { terms = await D.q(D.sb.from('news_topic_terms').select('term_id,topic,term').order('term_id')); }
+    catch (e) { D.set(panel, D.fail(e)); return; }
+    async function reclassify(done) {
+      try { var n = await D.rpc('admin_news_reclassify'); say(done + ' 기사 ' + D.num(n || 0) + '건의 분류가 바뀌었습니다. 뉴스 화면에 바로 반영됩니다.'); }
+      catch (e) { say(done + ' 다시 분류하지 못했습니다: ' + err(e), 'error'); }
+      drawTopics();
+    }
+    D.set(panel, h('h2', { text: '뉴스 분류' }),
+      h('p', { class: 'note', text: '뉴스 화면의 분류(대표 키워드)를 정하는 말입니다. 제목에서 먼저 찾고, 없으면 기사 요약에서 찾습니다. 여러 분류의 말이 함께 있으면 더 긴 말이 이깁니다 (예: \'임상 승인\' → 병원·임상, \'승인\' 만 있으면 인허가·정책). 길이가 같으면 ①→⑥ 순서. 아무 말도 없으면 경쟁사·파트너사로 분류합니다.' }),
+      h('p', { class: 'note', text: '한글이 들어간 말은 띄어쓰기를 무시하고 찾습니다 (시리즈 A = 시리즈A). 영문만 있는 말은 단어 단위로 찾습니다 (AI 는 MAIN 안의 ai 와 다름). 공통 태그 AI 는 분류와 따로 기사명 옆에 붙습니다. 말을 넣거나 빼면 이미 모은 기사도 바로 다시 분류합니다.' }),
+      TOPICS.map(function (t) {
+        var mine = terms.filter(function (x) { return x.topic === t[0]; });
+        var inp = h('input', { class: 'input', placeholder: '새 키워드', 'aria-label': t[1] + ' 새 키워드' });
+        async function add() {
+          var v = inp.value.trim();
+          if (!v) { say('키워드를 입력해 주세요.', 'error'); inp.focus(); return; }
+          try { await D.q(D.sb.from('news_topic_terms').insert({ topic: t[0], term: v })); }
+          catch (e) { say('추가하지 못했습니다: ' + (/duplicate|uk/.test(err(e)) ? '이미 있는 말입니다.' : err(e)), 'error'); return; }
+          reclassify(t[1] + '에 "' + v + '" 을(를) 넣었습니다.');
+        }
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+        return h('section', { class: 'rank-tier', 'aria-label': t[1] },
+          h('h3', null, t[1] + ' ', h('span', { class: 'note', text: mine.length + '개' })),
+          h('div', null, mine.length ? mine.map(function (x) {
+            return h('span', { class: 'chip-edit' }, x.term, h('button', { type: 'button', 'aria-label': x.term + ' 빼기', title: '빼기', text: '×', onclick: async function () {
+              try { await D.q(D.sb.from('news_topic_terms').delete().eq('term_id', x.term_id)); }
+              catch (e) { say('빼지 못했습니다: ' + err(e), 'error'); return; }
+              reclassify(t[1] + '에서 "' + x.term + '" 을(를) 뺐습니다.');
+            } }));
+          }) : h('span', { class: 'note', text: '키워드가 없습니다' })),
+          h('div', { class: 'add-row' }, inp, h('button', { type: 'button', class: 'btn small primary', text: '추가', onclick: add })));
+      }));
+  }
+
+  // ---- 언론사 우선순위 (news_publisher_ranks): 같은 기사 묶음에서 대표로 보일 언론사 ----
+  var rankExtra = 0;
+  async function drawRanks() {
+    var ranks, pubs, feeds;
+    try {
+      var r = await Promise.all([
+        D.q(D.sb.from('news_publisher_ranks').select('publisher_name,rank_level').order('rank_level').order('publisher_name')),
+        D.q(D.sb.from('news_publishers').select('publisher_name')),
+        D.q(D.sb.from('news_feeds').select('publisher_name')).catch(function () { return []; })]);
+      ranks = r[0]; pubs = r[1]; feeds = r[2] || [];
+    } catch (e) { D.set(panel, D.fail(e)); return; }
+    var known = pubs.concat(feeds).map(function (x) { return x.publisher_name; })
+      .filter(function (n, i, a) { return n && a.indexOf(n) === i && !ranks.some(function (r) { return r.publisher_name === n; }); }).sort();
+    var dl = h('datalist', { id: 'pub-names' }, known.map(function (n) { return h('option', { value: n }); }));
+    var maxLv = ranks.reduce(function (m, r) { return Math.max(m, r.rank_level); }, 0);
+    var levels = Math.min(20, Math.max(4, maxLv) + rankExtra);
+    async function setLevel(name, lv, msg) {
+      try {
+        await D.q(D.sb.from('news_publisher_ranks').upsert({ publisher_name: name, rank_level: lv }, { onConflict: 'publisher_name' }));
+       
+        say(msg);
+      } catch (e) { say('저장하지 못했습니다: ' + err(e), 'error'); }
+      drawRanks();
+    }
+    var boxes = [];
+    for (var lv = 1; lv <= levels; lv++) (function (lv) {
+      var mine = ranks.filter(function (r) { return r.rank_level === lv; });
+      var inp = h('input', { class: 'input', list: 'pub-names', placeholder: '언론사명', 'aria-label': lv + '단계에 넣을 언론사명' });
+      function add() {
+        var v = inp.value.trim();
+        if (!v) { say('언론사명을 입력해 주세요.', 'error'); inp.focus(); return; }
+        var had = ranks.filter(function (r) { return r.publisher_name === v; })[0];
+        setLevel(v, lv, had ? v + ' 을(를) ' + had.rank_level + '단계 → ' + lv + '단계로 옮겼습니다.' : v + ' 을(를) ' + lv + '단계에 넣었습니다.');
+      }
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+      boxes.push(h('section', { class: 'rank-tier', 'aria-label': lv + '단계' },
+        h('h3', null, lv + '단계 ', h('span', { class: 'note', text: lv === 1 ? '가장 먼저' : '' })),
+        h('div', null, mine.length ? mine.map(function (r) {
+          var sel = h('select', { 'aria-label': r.publisher_name + ' 단계 바꾸기', title: '단계 바꾸기', onchange: function () {
+            setLevel(r.publisher_name, Number(sel.value), r.publisher_name + ' 을(를) ' + sel.value + '단계로 옮겼습니다.'); } },
+            Array.apply(null, Array(Math.min(20, levels + 1))).map(function (_, i) { return h('option', { value: i + 1, text: (i + 1) + '단계', selected: i + 1 === lv }); }));
+          return h('span', { class: 'chip-edit' }, r.publisher_name, sel, h('button', { type: 'button', 'aria-label': r.publisher_name + ' 빼기', title: '빼기 (그 밖 언론사로)', text: '×', onclick: async function () {
+            try { await D.q(D.sb.from('news_publisher_ranks').delete().eq('publisher_name', r.publisher_name)); say(r.publisher_name + ' 을(를) 우선순위에서 뺐습니다.'); }
+            catch (e) { say('빼지 못했습니다: ' + err(e), 'error'); }
+            drawRanks();
+          } }));
+        }) : h('span', { class: 'note', text: '비어 있음' })),
+        h('div', { class: 'add-row' }, inp, h('button', { type: 'button', class: 'btn small primary', text: '추가', onclick: add }))));
+    })(lv);
+    D.set(panel, h('h2', { text: '언론사 우선순위' }),
+      h('p', { class: 'note', text: '같은 기사가 여러 언론사에 실리면 단계가 높은(숫자가 작은) 언론사 기사를 대표로 보여 주고 나머지는 \'외 N건\'으로 접습니다. 기준: 매체력이 높은 언론사 (대웅제약 주요기사 모니터링 기준과 같음). 같은 단계끼리는 분류·기업명·금액 순, 목록에 없는 언론사는 맨 뒤입니다.' }),
+      h('p', { class: 'note', text: '언론사명은 뉴스 화면에 보이는 이름과 똑같이 넣어 주세요 (입력하면 등록된 이름이 나옵니다. 이름이 다르면 \'언론사 이름\' 탭에서 먼저 정합니다). 바꾼 순서는 뉴스 화면에 바로, 메일·건수 묶음은 다음 뉴스 수집(3시간마다) 때 반영됩니다.' }),
+      dl, boxes,
+      levels < 20 ? h('button', { type: 'button', class: 'btn small', text: '+ 단계 추가', onclick: function () { rankExtra++; drawRanks(); } }) : null);
   }
 
   // ---- 사용자·권한: 추가 · 이름 · 권한 · 비밀번호 초기화 ----

@@ -60,9 +60,21 @@
   /* 같은 기사 묶기 (뉴스만, 인허가·공시는 건마다 다른 사건이라 묶지 않음)
      - 묶음 키: 서버가 뉴스 수집 때 계산한 것(dash_news_groups · group_key, common/news_dedup.py 규칙)
      - 서버 키가 없는 기사: 언론사 꼬리·말머리·기호를 뗀 제목이 8글자 이상 똑같을 때만
-     - 대표: 투자 > 병원 협력 > R&D 과제 > 전시·해외 > 뉴스 > 논문·연구 → 기업명 → 금액 → 최신. 나머지는 '외 N건'
+     - 대표: 언론사 우선순위(관리자 설정) → 분류(인허가·정책 > 투자 > 병원·임상 > 연구·R&D > 제품·출시 > 전시·해외 > 경쟁사·파트너사) → 기업명 → 금액 → 최신. 나머지는 '외 N건'
      - NEW·건수: 묶음 1건, 묶음에서 가장 먼저 들어온 때 기준 */
-  var KIND_ORDER = { '투자': 0, '병원 협력': 1, 'R&D 과제': 2, '전시·해외': 3, '뉴스': 4, '논문·연구': 5 };
+  var KIND_ORDER = { '인허가·정책': 0, '투자': 1, '병원·임상': 2, '연구·R&D': 3, '제품·출시': 4, '전시·해외': 5, '경쟁사·파트너사': 6,
+                     '병원 협력': 2, 'R&D 과제': 3, '논문·연구': 3, '뉴스': 6 };
+  // 언론사 우선순위 (news_publisher_ranks, 관리자 › 기준 정보 › 언론사 우선순위). 없으면 99 = 맨 뒤
+  var PUB_RANK = null;
+  D.loadPubRanks = async function (force) {
+    if (PUB_RANK && !force) return PUB_RANK;
+    var m = {};
+    try { (await D.q(D.sb.from('news_publisher_ranks').select('publisher_name,rank_level'))).forEach(function (r) { m[r.publisher_name] = r.rank_level; }); }
+    catch (e) { console.error(e); }
+    PUB_RANK = m;
+    return m;
+  };
+  D.pubRank = function (label) { var r = PUB_RANK && PUB_RANK[String(label || '').trim()]; return r == null ? 99 : r; };
   var MONEY = /\d[\d,.]*\s*(조|억|천만|만)\s*원?/;
   D.titleKey = function (t) {
     var s = D.clean(t || '');
@@ -72,7 +84,8 @@
     return s.length >= 8 ? s : null;
   };
   function leadRank(f) {
-    return [KIND_ORDER[f.kind] == null ? 4 : KIND_ORDER[f.kind], f.company_name ? 0 : 1, MONEY.test(f.title || '') ? 0 : 1];
+    var news = /^news:/.test(f.item_key || '');
+    return [news ? D.pubRank(f.source_label) : 99, KIND_ORDER[f.kind] == null ? 6 : KIND_ORDER[f.kind], f.company_name ? 0 : 1, MONEY.test(f.title || '') ? 0 : 1];
   }
   function better(a, b) {  // a 가 대표로 더 나으면 true
     var x = leadRank(a), y = leadRank(b);
@@ -91,8 +104,10 @@
     return groups.map(function (g) {
       var lead = g.all.reduce(function (a, b) { return better(b, a) ? b : a; });
       var first = g.all.map(function (x) { return x.collected_at; }).filter(Boolean).sort()[0];
-      var f = g.all.length > 1 ? Object.assign({}, lead, { first_seen: first }) : lead;
-      return { f: f, dups: g.all.filter(function (x) { return x !== lead; }) };
+      // 분류는 묶음 안에서 가장 앞 분류 (대표 언론사 제목에 분류 키워드가 없어도 다른 기사 제목으로 분류)
+      var kindBy = g.all.reduce(function (a, b) { return (KIND_ORDER[b.kind] == null ? 6 : KIND_ORDER[b.kind]) < (KIND_ORDER[a.kind] == null ? 6 : KIND_ORDER[a.kind]) ? b : a; });
+      var f = g.all.length > 1 ? Object.assign({}, lead, { first_seen: first, kind: kindBy.kind, category: kindBy.category, kind_from: kindBy.item_key }) : lead;
+      return { f: f, dups: g.all.filter(function (x) { return x !== lead; }).sort(function (a, b) { return better(a, b) ? -1 : better(b, a) ? 1 : 0; }) };
     });
   };
   /* 같은 기사 묶기 기준 (common/news_dedup.py 와 같은 내용, 화면에서 펼쳐 봄) */
@@ -118,7 +133,8 @@
           li('영문 논문 제목: 완전히 같을 때만')),
         h('h3', { text: '대표 기사와 건수' }),
         h('ul', null,
-          li('대표: 투자 > 병원 협력 > R&D 과제 > 전시·해외 > 뉴스 > 논문·연구 → 기업명 있음 → 금액 있음 → 언론사 RSS → 먼저 나온 기사. 나머지는 "외 N건"으로 접음'),
+          li('대표: 언론사 우선순위 (매체력이 높은 언론사 기준: 조선·중앙·동아일보 > 매일경제·한국경제 > 연합뉴스·뉴시스·뉴스1 > 주요 전문지(데일리팜·메디파나·의학신문·약업신문·약사공론) > 그 밖, 관리자 › 기준 정보 › 언론사 우선순위에서 바꿈)'),
+          li('언론사 단계가 같으면: 분류(인허가·정책 > 투자 > 병원·임상 > 연구·R&D > 제품·출시 > 전시·해외 > 경쟁사·파트너사) → 기업명 있음 → 금액 있음 → 언론사 RSS → 먼저 나온 기사. 나머지는 "외 N건"으로 접고 펼치면 같은 순서'),
           li('건수·NEW·메일·오늘의 결론에서 묶음은 1건. NEW 는 묶음에서 처음 들어온 기사 기준 (이미 본 사건의 후속 보도는 NEW 아님)'),
           li('묶음 계산: 뉴스 수집(3시간마다)이 끝날 때 최근 30일 기사로 다시 계산'))));
   };
@@ -173,7 +189,7 @@
         ctx.rows = await D.rpc('dash_feed', { p_from: r.from, p_to: r.to, p_category: o.category || null, p_limit: 2000, p_query: r.q || null });
         if (o.only) ctx.rows = ctx.rows.filter(o.only);   // 예: 뉴스만 / 뉴스 빼고
         ctx.groupOf = {};
-        if (o.groupable) { try { ctx.groupOf = await D.loadNewsGroups(ctx.rows); } catch (e) { console.error(e); } }
+        if (o.groupable) { try { await D.loadPubRanks(); ctx.groupOf = await D.loadNewsGroups(ctx.rows); } catch (e) { console.error(e); } }
       }
       catch (e) { D.set(tiles); D.set(listCard, D.fail(e)); return; }
       drawTiles(); drawList();
