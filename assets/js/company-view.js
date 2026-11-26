@@ -33,10 +33,11 @@
         { k: 'registrations', label: '허가 (1건당 4점, 최대 8점)', pts: 8, det: 'registration' }] },
     { key: 's_stage', ev: 'stage', name: '기업 단계', max: 20, cls: 'c2', bar: 'b2', desc: '아직 크지 않은 성장 초기 기업인가',
       rules: [{ k: 'age', label: '업허가 후 3~10년', pts: 5, det: 'license' }, { k: 'invest', label: '투자 단계 (시리즈 A~B)', pts: 10, todo: true },
-        { k: 'ipo', label: '상장 전', pts: 5, todo: true }] },
+        { k: 'ipo', label: '상장 전 (DART 비상장 법인)', pts: 5, det: 'dart_cls' }] },
     { key: 's_signal', ev: 'signal', name: '선행 신호', max: 25, cls: 'c3', bar: 'b3', desc: '최근 90일에 움직임이 있었나',
       rules: [{ k: 'trial', label: '최근 90일 임상시험 승인', pts: 8, det: 'trial', recent: true }, { k: 'innovation', label: '최근 90일 혁신의료기기 지정', pts: 6, det: 'innovation', recent: true },
-        { k: 'registration', label: '최근 90일 허가', pts: 5, det: 'registration', recent: true }, { k: 'news', label: 'R&D·투자·병원 실증 소식', pts: 6, todo: true }] },
+        { k: 'registration', label: '최근 90일 허가', pts: 5, det: 'registration', recent: true },
+        { k: 'news', label: '최근 90일 투자 소식 (DART 유상증자·전환사채)', pts: 6, det: 'funding', recent: true }] },
     { key: 's_wear', ev: 'wear', name: '웨어러블 적합', max: 15, cls: 'c4', bar: 'b4', desc: '우리 관심 분야(착용형·생체신호)와 맞나',
       rules: [{ k: 'wearable', label: '제품·사용 목적에 착용형 표현', pts: 8, det: 'wear_terms' }, { k: 'biosignal', label: '생체신호 측정', pts: 4, det: 'bio_terms' },
         { k: 'keyword', label: '관심 키워드 일치', pts: 3 }] }
@@ -45,13 +46,17 @@
   function ymd(d) { return d ? String(d).slice(0, 10) : ''; }
   function detLines(r, rule, asOf) {
     var d = (r.evidence && r.evidence.details) || {};
-    if (rule.todo) return ['수집 준비 중 (DART·투자·뉴스 연결 후 반영)'];
+    if (rule.todo) return ['수집 준비 중 (투자 정보 연결 후 반영)'];
     if (rule.det === 'license') {
       if (!d.license_first) return ['업허가 정보 없음'];
       var y = Math.floor((new Date(asOf || D.today()) - new Date(d.license_first)) / (365.25 * 864e5));
       return ['업허가 ' + ymd(d.license_first) + ' · 업력 ' + y + '년'];
     }
-    if (rule.det === 'wear_terms' || rule.det === 'bio_terms') return (d[rule.det] || []).length ? ['찾은 말: ' + d[rule.det].join(', ')] : [];
+    if (rule.det === 'dart_cls') {
+      var cl = { Y: '유가증권 상장', K: '코스닥 상장', N: '코넥스 상장', E: '비상장 (기타법인)' }[d.dart_cls];
+      return [cl ? 'DART: ' + cl : 'DART 에서 찾지 못함 (공시 대상이 아니거나 아직 연결 전)'];
+    }
+        if (rule.det === 'wear_terms' || rule.det === 'bio_terms') return (d[rule.det] || []).length ? ['찾은 말: ' + d[rule.det].join(', ')] : [];
     var lst = d[rule.det] || [];
     if (rule.recent) { var lim = D.addDays(asOf || D.today(), -90); lst = lst.filter(function (x) { return ymd(x.date) > lim; }); }
     return lst.map(function (x) { return cleanName(x.name) + (x.kind ? ' · ' + x.kind : '') + (x.date ? ' (' + ymd(x.date) + ')' : ''); });
@@ -150,6 +155,7 @@
   }
 
   // ---- 기본 정보 ----
+  var CLS = { Y: '유가증권 상장', K: '코스닥 상장', N: '코넥스 상장', E: '비상장 (기타법인)' };
   function infoCard(data, sc, star) {
     var c = data.company, address = c.company_address || (data.licenses[0] || {}).license_address;
     var closed = data.licenses.length && data.licenses.every(function (l) { return l.license_status !== 'active'; });
@@ -164,7 +170,11 @@
         data.licenses.length ? data.licenses.map(function (l) {
           return [h('dt', { text: (LIC[l.license_type] || '업') + ' 허가' }), h('dd', { text: l.license_number + (l.license_date ? ' · ' + l.license_date : '') + (LST[l.license_status] || '') })];
         }) : [h('dt', { text: '업허가' }), h('dd', { text: '정보 없음' })],
-        sc && sc.field ? [h('dt', { text: '주요 분야' }), h('dd', { text: sc.field })] : null));
+        sc && sc.field ? [h('dt', { text: '주요 분야' }), h('dd', { text: sc.field })] : null,
+        data.dart ? [h('dt', { text: 'DART' }), h('dd', null, CLS[data.dart.corp_cls] || '–',
+          data.dart.stock_code ? ' · 종목코드 ' + data.dart.stock_code : '', data.dart.est_dt ? ' · 설립 ' + data.dart.est_dt : '',
+          data.dart.ceo_nm ? ' · 대표 ' + data.dart.ceo_nm : '',
+          data.dart.hm_url ? h('span', null, ' · ', h('a', { href: /^https?:/.test(data.dart.hm_url) ? data.dart.hm_url : 'https://' + data.dart.hm_url, target: '_blank', rel: 'noopener noreferrer', text: '홈페이지 ↗' })) : null)] : null));
   }
 
   // ---- 통계 + 그래프 (연도별 허가·지정·임상 막대 | 월별 소식 꺾은선, 기간 고르기) ----
