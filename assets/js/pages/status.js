@@ -15,20 +15,189 @@
     auth_error: '인증 키·권한 문제입니다. GitHub Secrets 의 키가 맞는지, 만료되지 않았는지 확인해 주세요.',
     failed: '일시적인 접속 오류일 수 있습니다. 다음 실행에서도 실패하면 오류 내용을 확인해 주세요.',
     partial: '일부 글만 실패했습니다. 나머지는 저장됐고, 실패한 글은 다음 실행에서 다시 시도합니다.' };
-  var days = Number(new URLSearchParams(location.search).get('days')) || 7;
+  var qs = new URLSearchParams(location.search);
+  var days = Number(qs.get('days')) || 0;            // 0 = 일자별
+  var day = qs.get('day') || D.today();
   var open = {};
   var tiles = h('section', { class: 'tiles', 'aria-label': '요약' });
   var list = h('section', { class: 'card runs-card', 'aria-labelledby': 'src-h' });
-  var LBL = { 1: '오늘·어제', 7: '최근 7일', 30: '최근 30일' };
-  var pick = h('div', { class: 'chips', role: 'group', 'aria-label': '기간' }, [1, 7, 30].map(function (n) {
-    return h('button', { type: 'button', class: 'chip', 'aria-pressed': n === days ? 'true' : 'false', 'data-n': n, text: LBL[n],
-      onclick: function () { days = n; history.replaceState(null, '', '?days=' + n);
-        pick.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', Number(b.getAttribute('data-n')) === n ? 'true' : 'false'); }); load(); } });
+  var strip = h('section', { class: 'card day-strip-card', 'aria-label': '날짜 고르기' });
+  var LBL = { 0: '일자별', 7: '최근 7일', 30: '최근 30일' };
+  var pick = h('div', { class: 'chips', role: 'group', 'aria-label': '보기' }, [0, 7, 30].map(function (n) {
+    return h('button', { type: 'button', class: 'chip', 'aria-pressed': n === days ? 'true' : 'false', 'data-n': n, text: n ? LBL[n] + ' 합계' : '일자별',
+      onclick: function () { days = n; open = {}; syncUrl();
+        pick.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', Number(b.getAttribute('data-n')) === n ? 'true' : 'false'); }); route(); } });
   }));
-  D.set(main, D.header('수집 현황', '출처마다 언제 돌았고 성공했는지, 실패했다면 왜인지 봅니다 (한국 시간)', { right: pick }),
-    D.role === 'admin' ? D.scheduleCard('crawl_daily', '매일 수집 자동 실행 시각') : null, tiles, list);
-  load();
+  function syncUrl() { history.replaceState(null, '', days ? '?days=' + days : '?day=' + day); }
+  D.set(main, D.header('수집 현황', '날짜마다 출처별로 언제 몇 번(회차) 돌았고 성공했는지, 실패했다면 왜인지 봅니다 (한국 시간)', { right: pick }),
+    D.role === 'admin' ? D.scheduleCard('crawl_daily', '매일 수집 자동 실행 시각') : null, strip, tiles, list);
+  route();
+  function route() { if (days) { strip.hidden = true; load(); } else { strip.hidden = false; loadDay(); } }
 
+  // ================= 일자별 =================
+  var WK = '일월화수목금토';
+  function dLabel(d) { var x = new Date(d + 'T00:00:00+09:00'); return (x.getMonth() + 1) + '/' + x.getDate() + '(' + WK[x.getDay()] + ')'; }
+  function hm(ts) { if (!ts) return '–'; var x = new Date(new Date(ts).getTime() + 9 * 3600e3); return String(x.getUTCHours()).padStart(2, '0') + ':' + String(x.getUTCMinutes()).padStart(2, '0'); }
+  function dayKind(rows) {
+    if (rows.some(function (r) { return r.open_fails > 0; })) return 'bad';
+    if (rows.some(function (r) { return r.fails > 0 || r.partials > 0; })) return 'fixed';
+    return rows.length ? 'ok' : 'none';
+  }
+  async function loadDay() {
+    D.set(strip, D.loading()); D.set(tiles); D.set(list, D.loading());
+    var res;
+    try { res = await Promise.all([D.rpc('dash_crawl_days', { p_days: 30 }), D.rpc('dash_crawl_day', { p_date: day })]); }
+    catch (e) { D.set(strip); D.set(list, D.fail(e)); return; }
+    var byDay = {};
+    res[0].forEach(function (r) { (byDay[r.run_date] = byDay[r.run_date] || []).push(r); });
+    drawStrip(byDay);
+    drawDay(res[1], byDay[day] || []);
+  }
+  function go(d) { day = d; open = {}; syncUrl(); loadDay(); }
+  function drawStrip(byDay) {
+    var end = day > D.addDays(D.today(), -7) ? D.today() : D.addDays(day, 6);
+    var ds = []; for (var i = 13; i >= 0; i--) ds.push(D.addDays(end, -i));
+    var inp = h('input', { class: 'input', type: 'date', value: day, max: D.today(), 'aria-label': '날짜 고르기' });
+    inp.addEventListener('change', function () { if (inp.value) go(inp.value); });
+    var KTXT = { bad: '확인이 필요한 실패 있음', fixed: '실패가 있었지만 다시 정상', ok: '모두 정상', none: '수집 기록 없음' };
+    D.set(strip, h('div', { class: 'day-strip' },
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': '이전 날', onclick: function () { go(D.addDays(day, -1)); } }, D.svg('M15 5l-7 7 7 7')),
+      h('div', { class: 'day-chips' }, ds.map(function (d) {
+        var rows = byDay[d] || [], k = dayKind(rows), nNew = rows.reduce(function (a, r) { return a + r.new_sum; }, 0);
+        return h('button', { type: 'button', class: 'day-chip dk-' + k, 'aria-pressed': d === day ? 'true' : 'false', title: dLabel(d) + ' · ' + KTXT[k],
+          onclick: function () { go(d); } },
+          h('span', { class: 'dc-date', text: dLabel(d) }), h('i', { class: 'dc-dot', 'aria-hidden': 'true' }),
+          h('span', { class: 'dc-new', text: rows.length ? '신규 ' + D.num(nNew) : '–' }));
+      })),
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': '다음 날', disabled: day >= D.today(), onclick: function () { go(D.addDays(day, 1)); } }, D.svg('M9 5l7 7-7 7')),
+      inp),
+      h('p', { class: 'note day-legend' }, h('i', { class: 'dc-dot lg dk-ok' }), ' 모두 정상  ', h('i', { class: 'dc-dot lg dk-fixed' }), ' 실패가 있었지만 다시 정상  ',
+        h('i', { class: 'dc-dot lg dk-bad' }), ' 확인이 필요한 실패  ', h('i', { class: 'dc-dot lg dk-none' }), ' 기록 없음'));
+  }
+  function drawDay(rows, sums) {
+    var by = {};
+    rows.forEach(function (r) {
+      var s = by[r.source_system] = by[r.source_system] || { runs: {}, rows: [] };
+      s.rows.push(r);
+      (s.runs[r.run_no] = s.runs[r.run_no] || { no: r.run_no, at: r.run_at, rows: [] }).rows.push(r);
+    });
+    var srcs = ORDER.filter(function (k) { return by[k]; }).concat(Object.keys(by).filter(function (k) { return ORDER.indexOf(k) < 0; }));
+    var isBad = function (r) { return FAIL.indexOf(r.status) >= 0 || r.status === 'partial'; };
+    var bad = rows.filter(isBad), openBad = bad.filter(function (r) { return !r.fixed_at; });
+    var nRuns = sums.reduce(function (a, r) { return a + r.runs; }, 0);
+    D.set(tiles,
+      tile('출처', srcs.length + '곳', dLabel(day) + ' 수집한 곳'),
+      tile('실행', D.num(nRuns) + '회차', '출처별 회차를 더한 수'),
+      tile('새로 모은 정보', D.num(rows.reduce(function (a, r) { return a + (r.new_count || 0); }, 0)) + '건', '변경 ' + D.num(rows.reduce(function (a, r) { return a + (r.updated_count || 0); }, 0)) + '건'),
+      tile('실패', openBad.length ? '확인 필요 ' + openBad.length + '건' : bad.length ? '해결됨 ' + bad.length + '건' : '없음',
+        openBad.length ? '아직 다시 성공하지 않음' : bad.length ? '이후 다시 정상 수집됨' : '모든 실행 정상', openBad.length ? 'tile-bad' : ''));
+    D.set(list, h('div', { class: 'card-head' }, h('h2', { id: 'src-h', text: dLabel(day) + ' 출처별 실행' }),
+        h('span', { class: 'note', text: '줄을 누르면 회차·대상별 결과와 실패 내용을 봅니다 (뉴스는 3시간마다 → 1회차~N회차)' })),
+      srcs.length ? h('ul', { class: 'runs' }, srcs.map(function (k) { return dayRow(k, by[k]); })) : D.empty('이 날짜에는 수집 기록이 없습니다.'));
+  }
+  function runKind(rs) {
+    if (rs.some(function (r) { return FAIL.indexOf(r.status) >= 0 && !r.fixed_at; })) return 'bad';
+    if (rs.some(function (r) { return r.status === 'running'; })) return 'run';
+    if (rs.some(function (r) { return r.status === 'partial' && !r.fixed_at; })) return 'warn';
+    return 'ok';
+  }
+  function runDot(rs) {
+    if (rs.some(function (r) { return FAIL.indexOf(r.status) >= 0; })) return 'bad';
+    if (rs.some(function (r) { return r.status === 'partial'; })) return 'warn';
+    if (rs.some(function (r) { return r.status === 'running'; })) return 'run';
+    return 'ok';
+  }
+  function dayRow(k, d) {
+    var runs = Object.keys(d.runs).map(function (n) { return d.runs[n]; }).sort(function (a, b) { return a.no - b.no; });
+    var kind = runKind(d.rows);
+    var nBad = d.rows.filter(function (r) { return FAIL.indexOf(r.status) >= 0 || r.status === 'partial'; }).length;
+    var nOpen = d.rows.filter(function (r) { return (FAIL.indexOf(r.status) >= 0 || r.status === 'partial') && !r.fixed_at; }).length;
+    var nNew = d.rows.reduce(function (a, r) { return a + (r.new_count || 0); }, 0);
+    var targets = {}; d.rows.forEach(function (r) { targets[r.target + '|' + (r.search_query || '')] = 1; });
+    var first = runs[0], last = runs[runs.length - 1];
+    var body = h('div', { class: 'run-body', hidden: !open[k] });
+    var btn = h('button', { type: 'button', class: 'run-head', 'aria-expanded': open[k] ? 'true' : 'false', onclick: function () {
+      open[k] = !open[k]; body.hidden = !open[k]; btn.setAttribute('aria-expanded', open[k] ? 'true' : 'false');
+      if (open[k] && !body.childNodes.length) D.set(body, dayDetail(k, d, runs));
+    } },
+      icon(kind),
+      h('span', { class: 'run-name' }, h('b', { text: SRC[k] || k }),
+        h('span', { class: 'note', text: runs.length + '회차 · ' + (nOpen ? '확인이 필요한 실패 ' + nOpen + '건' : nBad ? '실패 ' + nBad + '건 → 이후 다시 정상' : '모두 정상') })),
+      h('span', { class: 'run-dots', 'aria-label': '회차별 결과' }, runs.map(function (r) {
+        var kk = runDot(r.rows);
+        return h('i', { class: 'dot-run st-' + kk, title: r.no + '회차 ' + hm(r.at) + ' · ' + (kk === 'bad' ? '실패' : kk === 'warn' ? '일부 실패' : '정상') });
+      })),
+      h('span', { class: 'run-when' }, h('span', { text: runs.length > 1 ? hm(first.at) + ' ~ ' + hm(last.at) : hm(first.at) }),
+        h('span', { class: 'note', text: '대상 ' + Object.keys(targets).length + '개' })),
+      h('span', { class: 'run-new', text: '신규 ' + D.num(nNew) }),
+      h('span', { class: 'run-chev', 'aria-hidden': 'true', text: '▾' }));
+    if (open[k]) D.set(body, dayDetail(k, d, runs));
+    return h('li', { class: 'run run-' + kind }, btn, body);
+  }
+  function targetTable(rows) {
+    return h('div', { class: 'table-wrap' }, h('table', { class: 'grid' },
+      h('thead', null, h('tr', null, ['', '대상', '상태', '시작', '걸린 시간', '확인', '신규', '변경'].map(function (x) { return h('th', { scope: 'col', text: x }); }))),
+      h('tbody', null, rows.map(function (t) {
+        var bad = FAIL.indexOf(t.status) >= 0;
+        return h('tr', { class: bad && !t.fixed_at ? 'row-bad' : null },
+          h('td', null, icon(bad ? (t.fixed_at ? 'warn' : 'bad') : t.status === 'partial' ? 'warn' : t.status === 'running' ? 'run' : 'ok')),
+          h('td', null, h('b', { text: t.target_name || t.target }),
+            h('span', { class: 'note block', text: (t.target_name ? t.target : '') + (t.search_query ? (t.target_name ? ' · ' : '') + '검색어 «' + t.search_query + '»' : '') })),
+          h('td', null, badge(t.status), t.fixed_at ? h('span', { class: 'note block', text: '→ ' + D.fmtTime(t.fixed_at) + ' 다시 정상' }) : null),
+          h('td', { class: 'nowrap', text: hm(t.started_at) }), h('td', { class: 'nowrap', text: dur(t.started_at, t.completed_at) || '–' }),
+          h('td', { class: 'num-cell', text: t.total_count == null ? '–' : t.total_count }),
+          h('td', { class: 'num-cell', text: t.new_count || 0 }), h('td', { class: 'num-cell', text: t.updated_count || 0 }));
+      }))));
+  }
+  function dayDetail(k, d, runs) {
+    var out = [];
+    if (runs.length > 1) {
+      out.push(h('h3', { class: 'run-sub', text: '회차별 결과 (' + runs.length + '회차)' }));
+      var tb = h('tbody');
+      runs.forEach(function (r) {
+        var rs = r.rows, kk = runKind(rs) === 'ok' && runDot(rs) !== 'ok' && runDot(rs) !== 'run' ? 'warn' : runKind(rs), nf = rs.filter(function (x) { return FAIL.indexOf(x.status) >= 0 || x.status === 'partial'; }).length;
+        var end = rs.map(function (x) { return x.completed_at; }).filter(Boolean).sort().pop();
+        var sub = h('tr', { class: 'run-sub-row', hidden: true }, h('td', { colspan: 8 }, targetTable(rs)));
+        var row = h('tr', { class: 'run-row' + (kk === 'bad' ? ' row-bad' : ''), tabindex: '0', role: 'button', 'aria-expanded': 'false',
+          onclick: function () { sub.hidden = !sub.hidden; row.setAttribute('aria-expanded', sub.hidden ? 'false' : 'true'); },
+          onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } },
+          h('td', null, icon(kk)), h('td', null, h('b', { text: r.no + '회차' })),
+          h('td', { class: 'nowrap', text: hm(r.at) + (end ? ' ~ ' + hm(end) : '') }),
+          h('td', { class: 'num-cell', text: rs.length }), h('td', { class: 'num-cell' + (nf ? ' bad' : ''), text: nf }),
+          h('td', { class: 'num-cell', text: rs.reduce(function (a, x) { return a + (x.new_count || 0); }, 0) }),
+          h('td', { class: 'num-cell', text: rs.reduce(function (a, x) { return a + (x.updated_count || 0); }, 0) }),
+          h('td', { class: 'run-chev', text: '▾' }));
+        tb.appendChild(row); tb.appendChild(sub);
+      });
+      out.push(h('div', { class: 'table-wrap' }, h('table', { class: 'grid run-table' },
+        h('thead', null, h('tr', null, ['', '회차', '시각', '대상(검색어)', '실패', '신규', '변경', ''].map(function (x) { return h('th', { scope: 'col', text: x }); }))), tb)),
+        h('p', { class: 'note', text: '회차 줄을 누르면 그 회차의 대상별 결과가 펼쳐집니다.' }));
+    } else {
+      out.push(h('h3', { class: 'run-sub', text: '대상별 결과' }), targetTable(runs[0].rows));
+    }
+    var bad = d.rows.filter(function (r) { return FAIL.indexOf(r.status) >= 0 || r.status === 'partial'; });
+    var openF = bad.filter(function (r) { return !r.fixed_at; }), past = bad.filter(function (r) { return r.fixed_at; });
+    out.push(h('h3', { class: 'run-sub', text: '지금 확인이 필요한 실패 ' + (openF.length ? openF.length + '건' : '') }),
+      openF.length ? h('div', { class: 'fail-list' }, openF.slice(0, 30).map(function (f) { return failBox(k, f, f.fixed_at, openF.length <= 3); }))
+        : h('p', { class: 'note ok-note', text: bad.length ? '없습니다. 이날 실패는 모두 이후에 다시 정상 수집됐습니다.' : '없습니다. 이날 모든 실행이 정상입니다.' }),
+      past.length ? h('details', { class: 'past-fails' }, h('summary', null, '이날 실패 ' + past.length + '건 보기 — 이후 다시 정상 수집되어 할 일 없음'),
+        h('div', { class: 'fail-list' }, past.slice(0, 30).map(function (f) { return failBox(k, f, f.fixed_at, false); }))) : null);
+    return out;
+  }
+  function failBox(k, f, fx, isOpen) {
+    return h('details', { class: 'fail' + (fx ? ' fixed' : ''), open: isOpen },
+      h('summary', null, badge(f.status), h('b', { text: ' ' + (f.target_name || f.target || '') }), f.search_query ? h('span', { class: 'note', text: ' · 검색어 «' + f.search_query + '»' }) : null,
+        fx ? h('span', { class: 'fixed-tag', text: '✓ 해결됨 · ' + D.fmtTime(fx) + ' 정상 수집' }) : null,
+        h('span', { class: 'note right', text: D.fmtTime(f.started_at) + (f.completed_at ? ' · ' + dur(f.started_at, f.completed_at) : '') })),
+      h('dl', { class: 'info' },
+        h('dt', { text: '오류 내용' }), h('dd', null, h('pre', { class: 'err-pre', text: f.error_message || '(내용 없음)' })),
+        h('dt', { text: '할 일' }), h('dd', { text: fx ? '없음 (이후 다시 정상 수집됨)' : (HINT[f.status] || HINT.failed) }),
+        h('dt', { text: '수집 기간' }), h('dd', { text: (f.window_from ? D.fmtTime(f.window_from) : '?') + ' ~ ' + (f.window_to ? D.fmtTime(f.window_to) : '?') }),
+        h('dt', { text: '건수' }), h('dd', { text: '확인 ' + (f.total_count == null ? '–' : f.total_count) + ' · 상세 ' + (f.fetched_count == null ? '–' : f.fetched_count) + ' · 신규 ' + (f.new_count || 0) + ' · 변경 ' + (f.updated_count || 0) }),
+        h('dt', { text: '기록 번호' }), h('dd', { class: 'note', text: k + '_crawl_logs #' + f.crawl_log_id })));
+  }
+
+  // ================= 기간 합계 (최근 7일·30일) =================
   function badge(s) { var x = ST[s] || [s || '-', 'gray']; return D.badge(x[0], x[1]); }
   function icon(kind) {
     var m = { ok: ['M5 12l5 5 9-10', 'st-ok', '성공'], bad: ['M6 6l12 12M18 6L6 18', 'st-bad', '실패'], warn: ['M12 7v6M12 17h.01', 'st-warn', '일부 실패'], run: ['M12 4a8 8 0 1 0 8 8', 'st-run', '실행 중'] }[kind];
@@ -44,7 +213,7 @@
 
   async function load() {
     D.set(tiles, D.loading()); D.set(list, D.loading());
-    var span = days === 1 ? 2 : days;
+    var span = days;
     var since = new Date(Date.now() - span * 864e5).toISOString();
     var res;
     try {
