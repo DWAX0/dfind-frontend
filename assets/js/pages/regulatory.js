@@ -52,7 +52,7 @@
   var listCard = h('section', { class: 'card', 'aria-labelledby': 'wk-h' }, h('div', { class: 'card-head' }, h('h2', { id: 'wk-h', text: '목록' }), h('span', { class: 'right' }, newChip)), tabs, table);
 
   D.set(main,
-    D.header('인허가·제도', '혁신의료기기 지정 · 식약처 허가 · NECA 신의료기술 · 공지를 주간 단위로 봅니다 (발표·허가일 기준)', { dot: 'dot-permit', right: label }),
+    D.header('인허가·제도', '혁신의료기기 지정 · 식약처 허가 · NECA 신의료기술 · 공지를 주간 단위로 봅니다 (발표·허가일 기준)', { dot: 'dot-permit', right: h('div', { class: 'group' }, label, h('a', { class: 'btn', href: 'list.html?cat=permit', text: '전체 리스트 보기 →' })) }),
     h('div', { class: 'reg-layout' },
     // 왼쪽: 주차별 건수 (이번 주 앞뒤 4주, 누르면 그 주로)
     h('aside', { class: 'card wk-side', 'aria-labelledby': 'wk-side-h' }, h('h2', { id: 'wk-side-h', class: 'wk-side-h', text: '주차별 건수' }),
@@ -363,71 +363,8 @@
       h('p', { class: 'note', text: '업허가 현황 전체 ' + all.length + '건 중 ' + list.length + '건 · 허가일자 최신순 · NEW = 허가일자가 최근 ' + NEW_DAYS + '일 안 (' + nNew + '건) · 기업명을 누르면 기업 정보' }),
       list.length > bd.shown ? h('button', { type: 'button', class: 'btn more', text: '100건 더 보기', onclick: function () { bd.shown += 100; drawTable(); } }) : null];
   }
-  /* 심사검토 결과 문서 요약: 항목 이름 뒤의 내용을 옮김 (첫 300자) */
-  var SUM_KEYS = [['제품명', '제\\s*품\\s*명|품\\s*명'], ['모델명', '모\\s*델\\s*명'], ['업체명', '업\\s*체\\s*명|제조\\s*(?:수입)?\\s*업자'],
-    ['분류·등급', '분\\s*류\\s*번\\s*호|등\\s*급'], ['사용목적', '사\\s*용\\s*목\\s*적'], ['작용원리', '작\\s*용\\s*원\\s*리'],
-    ['주요 성능', '(?:주요\\s*)?성\\s*능(?:\\s*및\\s*안전성)?'], ['임상 자료', '임\\s*상(?:\\s*시험)?(?:\\s*자료)?'], ['심사 결과', '심\\s*사\\s*(?:결\\s*과|의\\s*견|요\\s*지)|종\\s*합\\s*(?:의견|결론)|결\\s*론']];
-  function summarizeReview(text) {
-    if (!text) return [];
-    var t = text.replace(/\r/g, '');
-    var hits = [];
-    SUM_KEYS.forEach(function (k) {
-      var re = new RegExp('(?:^|\\n)\\s*(?:\\d+\\s*[.)]|[가-하]\\s*[.)]|[-·•□○▶])?\\s*(' + k[1] + ')\\s*[:：]?', 'm');
-      var m = re.exec(t);
-      if (m) hits.push({ label: k[0], at: m.index, end: m.index + m[0].length });
-    });
-    hits.sort(function (a, b) { return a.at - b.at; });
-    var out = [];
-    hits.forEach(function (x, i) {
-      var nextAt = i + 1 < hits.length ? hits[i + 1].at : x.end + 600;
-      var v = t.slice(x.end, Math.min(nextAt, x.end + 600)).replace(/\s+/g, ' ').trim();
-      if (v.length >= 2) out.push([x.label, v.length > 300 ? v.slice(0, 300) + '…' : v]);
-    });
-    return out;
-  }
-  /* 원문 미리보기: 심사검토 결과 공개 글 (PDF 는 화면 안에서, 그 밖의 문서는 뽑은 글자로) */
-  async function openReview(r) {
-    var body = h('div', { class: 'dialog-body' }, D.loading());
-    var dlg = h('dialog', { class: 'dialog wide review-dlg', 'aria-labelledby': 'rv-h' },
-      h('div', { class: 'card-head' }, h('h2', { id: 'rv-h', text: '원문 미리보기 — ' + (r.product_name ? pname(r.product_name) : r.permit_number || '') }),
-        h('button', { type: 'button', class: 'btn small right', text: '닫기', onclick: function () { dlg.close(); } })), body);
-    var urls = [];
-    dlg.addEventListener('close', function () { urls.forEach(function (u) { URL.revokeObjectURL(u); }); dlg.remove(); });
-    document.body.appendChild(dlg); dlg.showModal();
-    var doc;
-    try { doc = await D.rpc('dash_review_doc', { p_post_id: r.review_post_id }); } catch (e) { D.set(body, D.fail(e)); return; }
-    if (!doc) { D.set(body, D.empty('글을 찾을 수 없습니다.')); return; }
-    var files = doc.files || [];
-    var viewer = h('div', { class: 'rv-viewer' });
-    function show(f) {
-      tabs.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', b._f === f ? 'true' : 'false'); });
-      if (f.ext === 'pdf' && f.storage_path) {
-        D.set(viewer, D.loading('문서를 여는 중…'));
-        D.sb.storage.from('attachments').download(f.storage_path).then(function (res) {
-          if (res.error) throw res.error;
-          var u = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' })); urls.push(u);
-          D.set(viewer, h('iframe', { class: 'rv-frame', src: u, title: f.file_name }));
-        }).catch(function () { showText(f, '저장된 파일을 열지 못해 뽑은 글자로 보여 줍니다.'); });
-      } else showText(f, f.text ? '원본 서식은 아래 「원문 사이트에서 보기」에서 확인하세요. 여기서는 문서의 글자만 보여 줍니다.' : '');
-    }
-    function showText(f, note) {
-      D.set(viewer, f.text ? [note ? h('p', { class: 'note', text: note }) : null, h('pre', { class: 'rv-text', text: f.text })]
-        : D.empty('이 파일(' + (f.ext || '?') + ')은 화면에서 미리 볼 수 없습니다. 원문 사이트에서 받아 주세요.'));
-    }
-    var tabs = h('div', { class: 'chips' }, files.map(function (f) { var b = h('button', { type: 'button', class: 'chip small', text: f.file_name, onclick: function () { show(f); } }); b._f = f; return b; }));
-    var text = files.map(function (f) { return f.text || ''; }).join('\n') || doc.content || '';
-    var sum = summarizeReview(text);
-    D.set(body,
-      h('section', { class: 'rv-sum', 'aria-label': '심사 결과 요약' }, h('h3', { text: '요약' }),
-        sum.length ? h('dl', { class: 'info' }, sum.map(function (x) { return [h('dt', { text: x[0] }), h('dd', { text: x[1] })]; }))
-          : h('p', { class: 'note', text: text ? '문서에서 항목을 찾지 못했습니다. 아래 원문을 봐 주세요.' : '첨부 문서의 글자를 아직 뽑지 못했습니다. 아래 원문 사이트에서 확인해 주세요.' }),
-        h('p', { class: 'note', text: '문서 글자에서 항목 이름(사용목적·작용원리·심사 결과 등)을 찾아 자동으로 옮긴 것입니다. 정확한 내용은 원문을 확인하세요.' })),
-      h('div', { class: 'rv-meta' }, h('b', { text: doc.title }), h('span', { class: 'note', text: ' · 게시일 ' + (doc.post_date || '–') + ' · 허가·인증·신고번호 ' + (r.permit_number || '') }),
-        doc.post_url ? h('a', { class: 'btn small right', href: doc.post_url, target: '_blank', rel: 'noopener noreferrer', text: '원문 사이트에서 보기 ↗' }) : null),
-      files.length ? tabs : (doc.content ? h('pre', { class: 'rv-text', text: doc.content }) : D.empty('첨부 파일이 없습니다. 원문 사이트에서 확인해 주세요.')),
-      viewer);
-    if (files.length) show(files.filter(function (f) { return f.ext === 'pdf'; })[0] || files[0]);
-  }
+  // 원문·요약 팝업은 assets/js/review.js (D.openReview, 기업 정보 › 허가 제품과 같이 씀)
+  function openReview(r) { D.openReview(Object.assign({}, r, { product_name: pname(r.product_name) })); }
 
   loadWeeks();
   load();

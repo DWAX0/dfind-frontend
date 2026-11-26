@@ -263,14 +263,17 @@
     market: 'M3 17l6-6 4 4 8-8M15 7h6v6', research: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3',
     disc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7', mail: 'M3 6h18v12H3zM3 6l9 7 9-7', status: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18',
     users: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8',
-    pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z', gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01'
+    pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z', gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+    list: 'M4 4h16v16H4zM4 9h16M4 14h16M10 9v11'
   };
   var MENU = [
     { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum], ['scrap', '내 스크랩', 'scrap.html', I.star]] },
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
-    { label: '분야별 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit],
-      ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc]] },
-    { label: '신규 기사', items: [['market', '뉴스', 'market.html', I.market]] },
+    // 분야별 최신 정보: 최근 소식 확인 (기본 최근 7일) / 전체 리스트: 처음부터 모든 정보를 표로 찾아봄
+    { label: '분야별 최신 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit],
+      ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc], ['market', '뉴스', 'market.html', I.market]] },
+    { label: '전체 리스트', items: [['list-permit', '인허가·제도 전체', 'list.html?cat=permit', I.list], ['list-research', '연구·과제 전체', 'list.html?cat=research', I.list],
+      ['list-disclosure', '공시 전체', 'list.html?cat=disclosure', I.list], ['list-market', '뉴스 전체', 'list.html?cat=market', I.list]] },
     { label: '기록·운영', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['status', '수집 현황', 'status.html', I.status]] },
     { label: '관리자', admin: true, items: [['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen], ['recipients', '메일 수신자', 'admin-recipients.html', I.users],
       ['settings', '기준 정보', 'admin-settings.html', I.gear], ['logs', '로그 관리', 'admin-logs.html', I.log]] }

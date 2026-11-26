@@ -1053,3 +1053,62 @@ table.news-table a.list-title:hover, table.news-table a.list-title:focus-visible
 .chip-edit select { border: 0; background: transparent; font: inherit; color: #475569; }
 .add-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
 .add-row .input { max-width: 220px; }
+
+/* ---- 2026-11-26 (k) ---- */
+/* 기업명: 밑줄 없이, 마우스를 올리면 배경색 */
+.company-link, .company-link:hover, .company-link:focus-visible { text-decoration: none; }
+/* 기업 정보: 탭 메뉴 아래 여백 */
+.co-tabcard > .tabs { margin-bottom: 20px; }
+/* 기업 정보 › DART: 항목마다 한 줄 */
+dl.info dt.dart-h { font-weight: 700; color: var(--ink); padding-top: 6px; border-top: 1px dashed var(--line); }
+dl.info dd.dart-h { padding-top: 6px; border-top: 1px dashed var(--line); }
+dl.info dt.dart-sub { padding-left: 12px; font-size: 0.92rem; }
+dl.info dd.dart-sub { font-size: 0.95rem; }
+/* 기업 레이더 › 오늘 업데이트 소식 */
+.upd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.upd-row { display: grid; grid-template-columns: minmax(170px, 230px) minmax(0, 1fr); gap: 8px 18px; padding: 12px 0; border-top: 1px solid var(--line2, #e2e8ee); }
+.upd-row:first-child { border-top: 0; }
+.upd-co { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.upd-name { font-weight: 700; font-size: 1.02rem; color: var(--ink); }
+.upd-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.upd-kind { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: #eef4ff; color: #1e3a8a; font-size: 0.85rem; font-weight: 600; }
+.upd-kind b { background: #fff; border-radius: 999px; padding: 0 6px; font-size: 0.8rem; }
+.upd-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.upd-items li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.upd-title { color: var(--ink); text-decoration: none; font-weight: 500; }
+.upd-title:hover, .upd-title:focus-visible { color: #0a7a5c; }
+.link-btn { border: 0; background: none; padding: 2px 0; color: #0a7a5c; font: inherit; font-size: 0.9rem; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+@media (max-width: 760px) { .upd-row { grid-template-columns: 1fr; } }
+/* 기업 레이더: 변동 구분 줄 */
+tr.radar-divider td { background: var(--sunk, #f7f9fb); color: var(--muted); font-size: 0.85rem; font-weight: 700; padding: 6px 12px; }
+.radar-delta { white-space: nowrap; } .radar-delta > span + span { margin-left: 8px; }
+.delta-new { color: #1d4ed8; font-weight: 800; font-size: 0.85rem; }
+/* 심사검토 결과 팝업: 요약 먼저, 원문 미리보기는 버튼으로 */
+.rv-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.rv-sum { padding: 16px 18px; }
+.rv-sum h3 { font-size: 1.05rem; margin: 0 0 10px; }
+.rv-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.rv-facts > div { background: var(--sunk, #f7f9fb); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.rv-facts dt { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.rv-facts dd { margin: 2px 0 0; font-weight: 600; word-break: keep-all; }
+.rv-block { border-top: 1px solid var(--line); padding: 12px 0 4px; }
+.rv-block h4 { margin: 0 0 6px; font-size: 0.95rem; color: #0a7a5c; }
+.rv-prose { line-height: 1.75; font-size: 0.97rem; word-break: keep-all; }
+.rv-prose p { margin: 0 0 6px; }
+.rv-prose ul { margin: 4px 0 6px; padding-left: 20px; }
+.rv-prose li { margin: 2px 0; }
+.rv-prose.clamp { max-height: 9.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.note.small { font-size: 0.8rem; }
+/* 전체 리스트 */
+.list-filter .top { align-items: flex-end; }
+.list-filter .field.grow { flex: 1 1 260px; }
+.list-filter .btns { flex-direction: row; gap: 6px; }
+table.list-table .list-title { text-decoration: none; color: var(--ink); font-weight: 500; }
+table.list-table .list-title:hover { color: #0a7a5c; }
+table.list-table .badge { white-space: nowrap; }
+.w-co { width: 160px; } .w-kind { width: 150px; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+a.tab { text-decoration: none; color: inherit; }
+table.list-table td .badge { margin-left: 6px; }
+table.list-table td:nth-child(2) .badge { margin-left: 0; }

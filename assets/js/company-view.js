@@ -171,10 +171,30 @@
           return [h('dt', { text: (LIC[l.license_type] || '업') + ' 허가' }), h('dd', { text: l.license_number + (l.license_date ? ' · ' + l.license_date : '') + (LST[l.license_status] || '') })];
         }) : [h('dt', { text: '업허가' }), h('dd', { text: '정보 없음' })],
         sc && sc.field ? [h('dt', { text: '주요 분야' }), h('dd', { text: sc.field })] : null,
-        data.dart ? [h('dt', { text: 'DART' }), h('dd', null, CLS[data.dart.corp_cls] || '–',
-          data.dart.stock_code ? ' · 종목코드 ' + data.dart.stock_code : '', data.dart.est_dt ? ' · 설립 ' + data.dart.est_dt : '',
-          data.dart.ceo_nm ? ' · 대표 ' + data.dart.ceo_nm : '',
-          data.dart.hm_url ? h('span', null, ' · ', h('a', { href: /^https?:/.test(data.dart.hm_url) ? data.dart.hm_url : 'https://' + data.dart.hm_url, target: '_blank', rel: 'noopener noreferrer', text: '홈페이지 ↗' })) : null)] : null));
+        dartRows(data.dart)));
+  }
+  /* DART 기업 정보: 항목마다 한 줄, 없으면 '-' (DART 에 연결되지 않은 기업도 같은 칸) */
+  function dartRows(d) {
+    d = d || {};
+    function v(x) { return x == null || x === '' ? '-' : String(x); }
+    function link(u, t) { return u ? h('a', { href: /^https?:/.test(u) ? u : 'https://' + u, target: '_blank', rel: 'noopener noreferrer', text: t + ' ↗' }) : '-'; }
+    var biz = d.bizr_no && /^\d{10}$/.test(d.bizr_no) ? d.bizr_no.slice(0, 3) + '-' + d.bizr_no.slice(3, 5) + '-' + d.bizr_no.slice(5) : d.bizr_no;
+    var rows = [
+      ['상장 구분', CLS[d.corp_cls] || v(d.corp_cls)],
+      ['종목코드', v(d.stock_code)],
+      ['대표자', v(d.ceo_nm)],
+      ['설립일', v(d.est_dt)],
+      ['사업자번호', v(biz)],
+      ['업종 코드', v(d.induty_code)],
+      ['결산월', d.acc_mt ? Number(d.acc_mt) + '월' : '-'],
+      ['홈페이지', link(d.hm_url, '홈페이지')],
+      ['IR', link(d.ir_url, 'IR 페이지')],
+      ['DART 공시', d.corp_code ? (d.disclosures ? D.num(d.disclosures) + '건' + (d.last_disclosure ? ' · 최근 ' + d.last_disclosure : '') : '0건') : '-']
+    ];
+    return [h('dt', { class: 'dart-h' }, 'DART'), h('dd', { class: 'dart-h' }, d.corp_code
+        ? h('span', { class: 'note', text: '전자공시 기업 정보' + (d.corp_name ? ' · ' + d.corp_name : '') })
+        : h('span', { class: 'note', text: 'DART 에 연결되지 않은 기업 (비상장·공시 대상 아님 등)' })),
+      rows.map(function (r) { return [h('dt', { class: 'dart-sub', text: r[0] }), h('dd', { class: 'dart-sub' }, r[1])]; })];
   }
 
   // ---- 통계 + 그래프 (연도별 허가·지정·임상 막대 | 월별 소식 꺾은선, 기간 고르기) ----
@@ -236,7 +256,7 @@
     if (!list.length) return D.empty('혁신의료기기 지정 정보가 없습니다.');
     return h('div', { class: 'innov-grid' }, list.map(function (r) {
       var inner = [
-        h('div', { class: 'innov-img' }, r.image_path ? D.storageImg(r.image_path, (r.item_name || r.product_code || '') + ' 대표 그림') : h('span', { class: 'innov-noimg', text: '그림 없음' })),
+        h('div', { class: 'innov-img' }, r.image_path ? D.storageImg(r.image_path, (r.item_name || r.product_code || '') + ' 대표 그림') : h('span', { class: 'innov-noimg', text: '그림 준비 중' })),
         h('div', { class: 'innov-body' },
           h('div', { class: 'innov-meta' }, D.badge(r.designation_number || '지정', 'star'), h('span', { text: r.designation_date || '' }),
             D.isNew(r.collected_at, 'emedi') ? D.badge('NEW', 'new') : null),
@@ -274,29 +294,36 @@
     setTimeout(mark, 0);
     return box;
   }
+  function reviewBtn(r, label) {
+    if (!r.review_post_id || !D.openReview) return null;
+    return h('button', { type: 'button', class: 'btn small', text: label, onclick: function (e) { e.stopPropagation(); D.openReview(r); } });
+  }
   function registrationTable(list) {
     if (!list.length) return D.empty('허가 정보가 없습니다.');
     var body = h('tbody');
     list.forEach(function (r) {
-      var detail = h('tr', { class: 'detail', hidden: true }, h('td', { colspan: 7 }, h('dl', { class: 'info' },
+      var detail = h('tr', { class: 'detail', hidden: true }, h('td', { colspan: 8 }, h('dl', { class: 'info' },
         [['허가번호', r.permit_number], ['제품명', r.product_name], ['구분', STYPE[r.source_type] || r.source_type], ['허가 종류', RTYPE[r.registration_type] || r.registration_type],
           ['등급', r.device_class && r.device_class + '등급'], ['허가일', r.approval_date], ['상태', RST[r.approval_status] || r.approval_status],
           ['품목', [r.product_category_code, r.product_category_name].filter(Boolean).join(' · ')], ['사용목적', r.intended_use]]
           .filter(function (x) { return x[1]; }).map(function (x) { return [h('dt', { text: x[0] }), h('dd', { text: x[1] })]; }),
-        h('dt', { text: '원문' }), h('dd', null, r.review_report_url ? h('a', { href: r.review_report_url, target: '_blank', rel: 'noopener noreferrer', text: '심사 결과 보기' }) : null, ' ',
-          r.page_url ? h('a', { href: r.page_url, target: '_blank', rel: 'noopener noreferrer', text: '이머디에서 보기' }) : null))));
+        h('dt', { text: '원문' }), h('dd', null, reviewBtn(r, '심사검토 결과 원문·요약'), ' ',
+          !r.review_post_id && r.review_report_url ? h('a', { href: r.review_report_url, target: '_blank', rel: 'noopener noreferrer', text: '심사 결과 보기 ↗' }) : null, ' ',
+          r.page_url ? h('a', { href: r.page_url, target: '_blank', rel: 'noopener noreferrer', text: '이머디에서 보기 ↗' }) : null,
+          !r.review_post_id && !r.review_report_url && !r.page_url ? '-' : null))));
       var btn = h('button', { type: 'button', class: 'row-toggle', 'aria-expanded': 'false', 'aria-label': (r.product_name || '') + ' 자세히', text: '▸' });
       var tr = h('tr', { class: 'clickable', onclick: function () {
         detail.hidden = !detail.hidden; btn.setAttribute('aria-expanded', detail.hidden ? 'false' : 'true'); btn.textContent = detail.hidden ? '▸' : '▾';
         tr.classList.toggle('open', !detail.hidden);
       } }, h('td', null, btn), h('td', { class: 'wrap' }, h('b', { text: r.product_name || '(제품명 없음)' }), D.isNew(r.collected_at, 'emedi') ? D.badge('NEW', 'new') : null), h('td', { class: 'nowrap', text: r.permit_number || '' }),
         h('td', { class: 'nowrap', text: r.device_class ? r.device_class + '등급' : '' }), h('td', { class: 'nowrap', text: r.approval_date || '' }),
-        h('td', { class: 'nowrap', text: RTYPE[r.registration_type] || '' }), h('td', null, D.badge(RST[r.approval_status] || '정상', r.approval_status && r.approval_status !== 'active' ? 'bad' : 'ok')));
+        h('td', { class: 'nowrap', text: RTYPE[r.registration_type] || '' }), h('td', null, D.badge(RST[r.approval_status] || '정상', r.approval_status && r.approval_status !== 'active' ? 'bad' : 'ok')),
+        h('td', { class: 'nowrap' }, reviewBtn(r, '원문·요약') || h('span', { class: 'note', text: '-' })));
       body.append(tr, detail);
     });
     return h('div', { class: 'table-wrap' }, h('table', { class: 'grid reg-table' },
-      h('thead', null, h('tr', null, ['', '제품명', '허가번호', '등급', '허가일', '종류', '상태'].map(function (x, i) { return h('th', { scope: 'col', class: i === 0 ? 'w-star' : null, text: x }); }))), body),
-      h('p', { class: 'note', text: '줄을 누르면 사용목적·품목·원문 링크까지 모두 봅니다.' }));
+      h('thead', null, h('tr', null, ['', '제품명', '허가번호', '등급', '허가일', '종류', '상태', '상세'].map(function (x, i) { return h('th', { scope: 'col', class: i === 0 ? 'w-star' : null, text: x }); }))), body),
+      h('p', { class: 'note', text: '줄을 누르면 사용목적·품목·원문 링크까지 모두 봅니다. 「원문·요약」 = 심사검토 결과 공개 문서의 요약·미리보기·내려받기 (디지털의료기기 정보방에 공개된 제품만).' }));
   }
   function trialList(list) {
     if (!list.length) return D.empty('임상시험 승인 정보가 없습니다.');
@@ -362,7 +389,7 @@
     var st = Object.assign(groupAll(data.timeline || [], data.news), { from: D.addDays(D.today(), -365), to: D.today(), label: '최근 12개월', months: 12 });
     function anyNew(lst) { return lst.some(function (r) { return D.isNew(r.collected_at, 'emedi'); }); }
     var TABS = [
-      ['모든 소식', function () { return st.all.length; }, function () { return st.all.some(D.isNewItem); }, function () {
+      ['모든 소식', function () { return null; }, function () { return st.all.some(D.isNewItem); }, function () {
         return [h('p', { class: 'note tab-help', text: '이 기업과 관련된 인허가·임상·NECA·뉴스 등 모든 출처의 소식을 날짜순으로 모아 봅니다 (' + st.label + ', ' + D.fmt(st.from) + ' ~ ' + D.fmt(st.to) + ').' }),
           more(st.allGroups, function (g) { return D.listEntry(g, { files: {}, q: '' }); }, 20)]; }],
       ['혁신의료기기', function () { return data.innovations.length; }, function () { return anyNew(data.innovations); }, function () { return innovationCards(data.innovations); }],
@@ -373,12 +400,12 @@
     ];
     var tabBody = h('div', { role: 'tabpanel', id: 'tab-body-' + c.company_id });
     var tabBar = h('div', { class: 'tabs wrap-tabs', role: 'tablist', 'aria-label': '기업 자료' });
-    var tabCard = h('section', { class: 'card', 'aria-label': '기업 자료' }, tabBar, tabBody);
+    var tabCard = h('section', { class: 'card co-tabcard', 'aria-label': '기업 자료' }, tabBar, tabBody);
     var cur = 0;
     function drawTabs() {
       D.set(tabBar, TABS.map(function (t, i) {
         return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': i === cur ? 'true' : 'false', onclick: function () { pick(i); } },
-          t[0], h('span', { class: 'badge gray', text: t[1]() }), t[2]() ? D.newDot(t[0] + '에 새로 들어온 정보가 있습니다') : null);
+          t[0], t[1]() == null ? null : h('span', { class: 'badge gray', text: t[1]() }), t[2]() ? D.newDot(t[0] + '에 새로 들어온 정보가 있습니다') : null);
       }));
     }
     function pick(i) { cur = i; drawTabs(); D.set(tabBody, TABS[i][3]()); }

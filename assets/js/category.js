@@ -178,7 +178,10 @@
     var right = o.groupable ? h('button', { type: 'button', class: 'btn', 'aria-pressed': 'true', id: 'group-btn',
       onclick: function (e) { ctx.group = !ctx.group; e.currentTarget.setAttribute('aria-pressed', ctx.group ? 'true' : 'false');
         e.currentTarget.textContent = '같은 기사 묶기: ' + (ctx.group ? '켜짐' : '꺼짐'); drawTiles(); drawList(); } }, '같은 기사 묶기: 켜짐') : null;
-    D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + (o.dot || o.category), right: right }),
+    // 분야별 최신 정보 → 같은 분야 전체 리스트로
+    var LIST_CAT = { research: 'research', disclosure: 'disclosure', market: 'market' }[o.page];
+    var allLink = LIST_CAT ? h('a', { class: 'btn', href: 'list.html?cat=' + LIST_CAT, text: '전체 리스트 보기 →' }) : null;
+    D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + (o.dot || o.category), right: h('div', { class: 'group' }, right, allLink) }),
       o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, o.groupable ? D.dupRules() : null, panel.el, tiles, listCard);
     panel.start();
 
