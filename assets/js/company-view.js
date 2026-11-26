@@ -449,9 +449,14 @@
       } catch (e) { pmsg.textContent = '불러오지 못했습니다: ' + ((e && e.message) || e); }
     }
     function drawStats() { D.set(statsBox, statsCard(data, st, pickByName, periodBar)); }
+    // 3열: [기본정보 (1~3행)] [조기 발굴 점수 / 인허가 현황 / 통계] [최근 90일 신호 (1~3행)] → 아래 탭
     D.set(box,
-      h('div', { class: 'detail-row' }, infoCard(data, sc, star), h('div', { class: 'detail-col' }, scoreCard(sc, c.company_name), statusCard(data, kinds, pickByName))),
-      h('div', { class: 'detail-row2' }, recentCard(base.all, function () { pickByName('모든 소식'); }), statsBox),
+      h('div', { class: 'co-grid' },
+        h('div', { class: 'ga ga-info' }, infoCard(data, sc, star)),
+        h('div', { class: 'ga ga-score' }, scoreCard(sc, c.company_name)),
+        h('div', { class: 'ga ga-status' }, statusCard(data, kinds, pickByName)),
+        h('div', { class: 'ga ga-stats' }, statsBox),
+        h('div', { class: 'ga ga-recent' }, recentCard(base.all, function () { pickByName('모든 소식'); }))),
       tabCard);
     drawStats();
     pick(o.tab ? Math.max(0, TABS.map(function (t) { return t[0]; }).indexOf(o.tab === '전체 소식' ? '모든 소식' : o.tab)) : 0);

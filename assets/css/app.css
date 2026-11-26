@@ -1112,3 +1112,28 @@ table.list-table .badge { white-space: nowrap; }
 a.tab { text-decoration: none; color: inherit; }
 table.list-table td .badge { margin-left: 6px; }
 table.list-table td:nth-child(2) .badge { margin-left: 0; }
+/* 기업 정보 3열 배치: 1열 기본정보(1~3행) · 2열 조기 발굴 점수/인허가 현황/통계 · 3열 최근 90일 신호(1~3행) */
+.co-grid { display: grid; gap: 18px; align-items: stretch;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.5fr) minmax(300px, 1fr);
+  grid-template-areas: "info score recent" "info status recent" "info stats recent"; }
+.co-grid > .ga { min-width: 0; display: flex; flex-direction: column; }
+.co-grid > .ga > .card, .co-grid > .ga > .stats-box, .co-grid > .ga > .stats-box > .card { flex: 1 1 auto; }
+.co-grid > .ga-stats > .stats-box { display: flex; flex-direction: column; }
+.ga-info { grid-area: info; } .ga-score { grid-area: score; } .ga-status { grid-area: status; } .ga-stats { grid-area: stats; } .ga-recent { grid-area: recent; }
+.co-grid .info-card { height: 100%; }
+/* 가운데 열은 좁으니 그래프를 위아래로 */
+.co-grid .co-stats .chart-pair { grid-template-columns: minmax(0, 1fr); }
+.co-grid .co-stats .stats-head { flex-wrap: wrap; }
+/* 최근 90일 신호: 가운데 열 높이만큼, 넘치면 안에서 스크롤 */
+.co-grid .recent-card { height: 100%; display: flex; flex-direction: column; }
+.co-grid .recent-card .recent-list { flex: 1 1 0; min-height: 320px; max-height: none; overflow-y: auto; }
+@media (max-width: 1280px) {
+  .co-grid { grid-template-columns: minmax(260px, 1fr) minmax(0, 1.6fr);
+    grid-template-areas: "info score" "info status" "info stats" "recent recent"; }
+  .co-grid .recent-card .recent-list { flex: none; max-height: 420px; min-height: 0; }
+}
+@media (max-width: 820px) {
+  .co-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "info" "score" "status" "stats" "recent"; }
+}
+.co-grid .co-stats .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.co-grid .co-stats .kpi-cell { min-height: 0; }
