@@ -1019,3 +1019,16 @@ svg.chart .dot-pt.s4 { fill: var(--accent); } svg.chart .dot-pt.s5 { fill: var(-
 .rv-viewer { margin-top: 10px; }
 .rv-frame { width: 100%; height: 70vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .rv-text { white-space: pre-wrap; max-height: 62vh; overflow: auto; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-family: inherit; font-size: 0.95rem; line-height: 1.6; }
+/* 회사별 묶기 (인허가 전체 목록 · 디지털의료기기 대장) */
+.group-mode { margin: 0 0 10px; }
+.co-table td { vertical-align: middle; }
+.co-row { cursor: pointer; } .co-row:hover { background: var(--accent-soft); } .co-row.open > td { background: var(--accent-soft); font-weight: 600; }
+.co-row .tri { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+.co-row .num { font-family: var(--f-num); }
+.co-latest { color: var(--ink2); }
+.mini-kind { white-space: nowrap; font-size: 0.86rem; }
+.co-table tr.detail > td { background: var(--sunk); padding: 10px 12px 14px 40px; }
+.dd-purpose { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px; font-size: 0.86rem; color: var(--muted); font-weight: 400; }
+.rv-sum { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; background: var(--card); }
+.rv-sum h3 { margin: 0 0 6px; font-size: 1rem; }
+.co-table .num-cell { white-space: nowrap; }
