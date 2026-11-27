@@ -283,14 +283,14 @@
   var MENU = [
     { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum], ['scrap', '내 스크랩', 'scrap.html', I.star]] },
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
-    // 분야별 최신 정보: 최근 소식 확인 (기본 최근 7일) / 전체 리스트: 처음부터 모든 정보를 표로 찾아봄
+    // 분야별 최신 정보: 최근 소식 확인 (기본 최근 7일). 처음부터 모두 보는 전체 리스트(list.html)는 각 화면의 '전체 리스트 보기'·검색에서
     { label: '분야별 최신 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit],
       ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc], ['market', '뉴스', 'market.html', I.market]] },
-    { label: '전체 리스트', items: [['list-permit', '인허가·제도 전체', 'list.html?cat=permit', I.list], ['list-research', '연구·과제 전체', 'list.html?cat=research', I.list],
-      ['list-disclosure', '공시 전체', 'list.html?cat=disclosure', I.list], ['list-market', '뉴스 전체', 'list.html?cat=market', I.list]] },
-    { label: '기록·운영', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['status', '수집 현황', 'status.html', I.status]] },
-    { label: '관리자', admin: true, items: [['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen], ['recipients', '메일 수신자', 'admin-recipients.html', I.users],
-      ['settings', '기준 정보', 'admin-settings.html', I.gear], ['logs', '로그 관리', 'admin-logs.html', I.log]] }
+    // [5] = 'admin' 이면 관리자에게만 보이는 메뉴
+    { label: '메일 관리', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen, null, 'admin'],
+      ['recipients', '메일 수신자', 'admin-recipients.html', I.users, null, 'admin']] },
+    { label: '수집 관리', items: [['status', '수집 현황', 'status.html', I.status], ['settings', '기준 정보', 'admin-settings.html', I.gear, null, 'admin'],
+      ['logs', '로그 관리', 'admin-logs.html', I.log, null, 'admin']] }
   ];
 
   function renderNav(active, role) {
@@ -309,7 +309,7 @@
     MENU.forEach(function (g) {
       if (g.admin && role !== 'admin') return;
       kids.push(D.h('div', { class: 'menu-group' }, D.h('span', { class: 'menu-label', text: g.label }),
-        g.items.map(function (m) {
+        g.items.filter(function (m) { return m[5] !== 'admin' || role === 'admin'; }).map(function (m) {
           return D.h('a', { class: 'menu-item', href: D.root + m[2], 'aria-current': m[0] === active ? 'page' : null },
             D.svg(m[3]), m[1], m[4] && m[0] !== active ? D.h('span', { class: 'menu-tag', text: m[4] }) : null);
         })));
@@ -334,9 +334,10 @@
       wrap.append(gnb, main);
     }
     var ROLE = { admin: '관리자', viewer: '조회' };
-    D.set(gnb,
+    // 1줄: 사이트 · 마지막 수집 · 로그인 정보 / 2줄: 통합 검색 (가운데, 넓게)
+    var search = gnbSearch();
+    D.set(gnb, D.h('div', { class: 'gnb-top' },
       D.h('div', { class: 'gnb-site' }, D.h('b', { text: 'D*Find' }), D.h('span', { text: '유망 디지털헬스케어 기업 발굴' })),
-      gnbSearch(),
       D.h('div', { class: 'gnb-crawl' }, D.svg('M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18', 18),
         D.h('span', { text: '마지막 수집' }), D.h('b', { id: 'last-crawl', text: '확인 중…' }), D.h('span', { id: 'crawl-health' })),
       D.h('div', { class: 'gnb-right' },
@@ -345,7 +346,8 @@
         D.h('button', { type: 'button', class: 'btn small', id: 'font-toggle', onclick: toggleFont }),
         D.user ? D.h('span', { class: 'gnb-user' }, D.svg('M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 18),
           D.h('span', { class: 'gnb-email', title: D.user.email, text: D.userName ? D.userName + ' (' + D.user.email + ')' : D.user.email }), role ? D.badge(ROLE[role] || role, role === 'admin' ? 'bad' : 'gray') : null) : null,
-        D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null));
+        D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null)),
+      search ? D.h('div', { class: 'gnb-search-row' }, search) : null);
     setFontLabel();
   }
 

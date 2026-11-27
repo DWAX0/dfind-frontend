@@ -17,7 +17,7 @@
   var listCard = h('section', { class: 'card', 'aria-labelledby': 'list-h' });
   var updCard = h('section', { class: 'card upd-card', 'aria-labelledby': 'upd-h' });
   D.set(main,
-    D.header('기업 레이더', '기준일에 새 소식이 있는 기업 → 조기 발굴 점수(100점) 순위 (전날보다 순위·점수가 바뀐 기업 먼저) · 순위표의 기업 이름을 누르면 오른쪽에 자세히', {
+    D.header('기업 레이더', '기준일에 새 소식이 있는 기업 → 조기 발굴 점수(100점) 1위부터 · 바뀐 기업만 보려면 \'순위·점수 변동\' · 순위표의 기업 이름을 누르면 오른쪽에 자세히', {
       right: h('div', { class: 'group' }, h('label', { class: 'field', for: 'asof' }, '기준일 (그날 점수·순위)', dateInput),
         h('button', { type: 'button', class: 'btn', text: '오늘', onclick: function () { st.asOf = TODAY; dateInput.value = TODAY; save(); load(); } }))
     }),
@@ -107,7 +107,7 @@
       if (st.filter === 'up') return r.delta > 0;
       if (st.filter === 'changed') return changed(r);
       return true;
-    }).sort(function (a, b) { return (changed(b) ? 1 : 0) - (changed(a) ? 1 : 0) || a.rank - b.rank; });  // 바뀐 기업 먼저, 그 안에서 순위 순
+    }).sort(function (a, b) { return a.rank - b.rank; });  // 1위부터 순서대로 (변동 기업만 보려면 '순위·점수 변동' 탭)
   }
   function delta(n) {
     if (n > 0) return h('span', { class: 'delta-up', text: '▲ ' + n });
@@ -139,10 +139,7 @@
       list = filtered();
       if (!list.length) { D.set(tableBox, D.empty('조건에 맞는 기업이 없습니다.')); return; }
       var body = h('tbody');
-      var nChanged = list.filter(changed).length;
-      if (nChanged && st.filter !== 'changed') body.appendChild(h('tr', { class: 'radar-divider' }, h('td', { colspan: '11' }, '전날보다 순위·점수가 바뀐 기업 ' + nChanged + '곳')));
-      list.slice(0, st.shown).forEach(function (r, i) {
-        if (i === nChanged && nChanged && st.filter !== 'changed') body.appendChild(h('tr', { class: 'radar-divider' }, h('td', { colspan: '11' }, '변동 없는 기업')));
+      list.slice(0, st.shown).forEach(function (r) {
         var bar = h('span', { class: 'bar' });
         CRIT.forEach(function (c) { bar.appendChild(D.width(h('span', { class: c.bar }), r[c.key])); });
         var opened = !!st.open[r.company_id];

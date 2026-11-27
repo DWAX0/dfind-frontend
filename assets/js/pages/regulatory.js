@@ -32,7 +32,8 @@
   var p = new URLSearchParams(location.search);
   var thisMon = monday(D.today());
   var ALL_FROM = '2000-01-01';
-  var st = { from: p.get('all') ? ALL_FROM : p.get('from') || thisMon, to: p.get('all') ? D.today() : p.get('to') || D.addDays(thisMon, 6), q: p.get('q') || '', group: p.get('g') || 'all', onlyNew: p.get('new') === '1' };
+  // '전체 목록' 탭은 없앰 (처음부터 모두 보기는 전체 리스트 화면). 예전 주소 ?all=1 은 이번 주로
+  var st = { from: p.get('from') || thisMon, to: p.get('to') || D.addDays(thisMon, 6), q: p.get('q') || '', group: p.get('g') || 'all', onlyNew: p.get('new') === '1' };
   function isAll() { return st.from === ALL_FROM; }
   var weekRows = [], rows = [], files = {};
 
@@ -88,7 +89,6 @@
     history.replaceState(null, '', '?' + u.toString());
   }
   function setWeek(mon) { st.from = monday(mon); st.to = D.addDays(st.from, 6); load(); }
-  function setAll() { st.from = ALL_FROM; st.to = D.today(); load(); }
   function isWeek() { return st.to === D.addDays(st.from, 6) && dow(st.from) === 1; }
 
   // 주차 칩 건수: 이번 주 앞뒤 4주를 한 번에 받아 셈
@@ -98,9 +98,7 @@
     drawChips();
   }
   function drawChips() {
-    var allBtn = h('button', { type: 'button', class: 'wk wk-all' + (isAll() ? ' on' : ''), 'aria-pressed': isAll() ? 'true' : 'false', onclick: setAll },
-      h('span', { class: 'wk-top' }, h('b', { text: '전체 목록' }), h('small', { text: '기간 상관없이 모두' })));
-    D.set(chips, allBtn, [0, -1, -2, -3, -4, -5, -6, -7, -8].map(function (k) {
+    D.set(chips, [0, -1, -2, -3, -4, -5, -6, -7, -8].map(function (k) {
       var a = D.addDays(thisMon, k * 7), b = D.addDays(a, 6), w = isoWeek(a);
       var inWeek = weekRows.filter(function (f) { return f.item_date >= a && f.item_date <= b; });
       var nNew = inWeek.filter(function (f) { return D.isNewItem(f); }).length;

@@ -6,7 +6,7 @@
   var CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시'], ['market', '뉴스']];
   var p = new URLSearchParams(location.search);
   var cat = CATS.some(function (c) { return c[0] === p.get('cat'); }) ? p.get('cat') : 'permit';
-  var main = await D.boot('list-' + cat);
+  var main = await D.boot({ permit: 'regulatory', research: 'research', disclosure: 'disclosure', market: 'market' }[cat]);  // 메뉴는 같은 분야의 최신 정보에 불
   if (!main) return;
   var label = CATS.filter(function (c) { return c[0] === cat; })[0][1];
   var PER = 100;
