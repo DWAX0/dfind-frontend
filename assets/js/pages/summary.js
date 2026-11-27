@@ -26,7 +26,9 @@
   var top = h('section', { class: 'card', 'aria-labelledby': 'top-h' });
   var news = h('section', { class: 'card', 'aria-labelledby': 'news-h' });
   var bar = D.periodBar({ dayOnly: true, onChange: load });
-  D.set(main, 
+  // 메일 리포트 전송 (관리자, ?send=1): 이 화면 그대로 + 위에 보내기 막대 (고른 날짜의 메일을 보냄)
+  var sendBar = D.role === 'admin' && new URLSearchParams(location.search).get('send') === '1' ? D.mailSendBar() : null;
+  D.set(main, sendBar,
     h('header', { class: 'top' }, h('div', { class: 'grow' }, titleEl,
       h('p', { class: 'sub' }, h('span', { class: 'greet-notice', text: '사내 전용 · 보기 전용 · 메일 수신자·발송 이력은 표시하지 않음' })), subEl, pastEl)),
     bar, concl, sense, tiles, kindTiles, top, news);
@@ -37,6 +39,7 @@
   async function load(r) {
     var single = r.from === r.to;
     var d = r.to;
+    if (sendBar) sendBar.setDay(d);
     var feedFrom = single ? D.addDays(d, -1) : r.from;
     titleEl.textContent = !single ? '기간 요약' : d === TODAY ? D.greeting() : Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8)) + '일 요약';
     subEl.textContent = single ? D.fmtLong(d) + ' · 전날과 당일에 발표·승인된 정보' : D.fmt(r.from) + ' ~ ' + D.fmt(r.to) + ' 동안 발표·승인된 정보';
@@ -160,10 +163,15 @@
     })));
   }
 
+  // 뉴스는 대시보드가 아닌 언론사 원문 (새 창), 나머지는 대시보드 정보 보기
+  function newsOrItem(f, text) {
+    return /^news:/.test(f.item_key || '') && f.url ? h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '언론사 원문 (새 창)', text: text })
+      : h('a', { href: D.itemHref(f.item_key), text: text });
+  }
   function senseItem(f, cls) {
     return h('div', { class: 'sense-item' }, D.badge(f.kind, cls),
       f.company_name ? D.companyLink(f.company_id, f.company_name) : null,
-      h('a', { href: D.itemHref(f.item_key), text: D.clean(f.title).slice(0, 60) }),
+      newsOrItem(f, D.clean(f.title).slice(0, 60)),
       h('span', { class: 'when', text: D.fmt(f.item_date) }));
   }
   function drawSense(r, d) {

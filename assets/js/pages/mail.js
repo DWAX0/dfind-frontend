@@ -101,7 +101,8 @@
         h('h3', { text: '오늘의 결론' }),
         (sum.conclusions || []).length ? h('ol', { class: 'mail-concl' }, sum.conclusions.map(function (x) {
           var ref = (x.refs || [])[0];
-          return h('li', null, D.rich(x.text), ref && ref.item_key ? [' ', h('a', { href: D.itemHref(ref.item_key), text: '근거 보기' })] : null);
+          return h('li', null, D.rich(x.text), ref && ref.item_key ? [' ', /^news:/.test(ref.item_key) && ref.url ? h('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer', text: '기사 원문' })
+            : h('a', { href: D.itemHref(ref.item_key), text: '근거 보기' })] : null);
         })) : D.empty('결론이 없었습니다.'),
         sum.model ? h('p', { class: 'note', text: HOW[sum.model] || 'AI 정리' }) : null,
         (c.top || []).length ? [h('h3', { text: '주목 기업 TOP 5' }), h('ol', { class: 'mail-top' }, c.top.map(function (r) {

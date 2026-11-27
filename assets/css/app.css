@@ -1285,3 +1285,10 @@ a:hover .hl-topic, a:focus-visible .hl-topic { color: inherit; }
 .mail-over-tile.mail-auto.wide .chips { margin: 0 0 0 auto; }
 .mail-over-tiles.one .mail-auto { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 14px; }
 .mail-over-tiles.one { grid-template-columns: 1fr; }
+/* 메일 리포트 전송: SUMMARY 화면 위 보내기 막대 */
+.mail-send { border: 2px solid #0a7a5c; }
+.mail-send .card-head .note { margin-left: 6px; }
+.mail-send-row { display: flex; align-items: center; gap: 12px 28px; flex-wrap: wrap; }
+.mail-send-row .mail-fact { display: flex; align-items: baseline; gap: 8px; }
+.mail-send-row .mail-actions { margin-left: auto; }
+.mail-send .mail-hist summary { cursor: pointer; color: var(--muted, #6b7280); font-size: .9rem; margin-top: 6px; }
