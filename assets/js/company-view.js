@@ -193,8 +193,9 @@
     ];
     return [h('dt', { class: 'dart-h' }, 'DART'), h('dd', { class: 'dart-h' }, d.corp_code
         ? h('span', { class: 'note', text: '전자공시 기업 정보' + (d.corp_name ? ' · ' + d.corp_name : '') })
-        : h('span', { class: 'note', text: 'DART 에 연결되지 않은 기업 (비상장·공시 대상 아님 등)' })),
-      rows.map(function (r) { return [h('dt', { class: 'dart-sub', text: r[0] }), h('dd', { class: 'dart-sub' }, r[1])]; })];
+        : h('span', { class: 'note', text: 'DART 에 연결되지 않은 기업 (비상장·공시 대상 아님 등)' }),
+      // 항목은 두 칸씩 촘촘하게
+      h('dl', { class: 'dart-grid' }, rows.map(function (r) { return h('div', null, h('dt', { text: r[0] }), h('dd', null, r[1])); })))];
   }
 
   // ---- 통계 + 그래프 (연도별 허가·지정·임상 막대 | 월별 소식 꺾은선, 기간 고르기) ----
@@ -246,7 +247,8 @@
     var r90 = all.filter(function (f) { return f.item_date >= lim; });
     return h('section', { class: 'card recent-card' }, h('div', { class: 'card-head' }, h('h2', { text: '최근 90일 신호' }), h('span', { class: 'badge gray', text: r90.length }),
       onAll ? h('button', { type: 'button', class: 'btn small right', text: '모든 소식 보기', onclick: onAll }) : null),
-      h('div', { class: 'recent-list' }, r90.slice(0, 12).map(function (f) { return D.feedItem(f, { noDetail: true, noStar: true }); }),
+      // 한 줄씩: 제목을 누르면 원문(뉴스는 언론사)으로 바로. 밑줄 없음
+      h('div', { class: 'recent-list' }, r90.slice(0, 12).map(function (f) { return D.feedItem(Object.assign({}, f, { company_id: null, company_name: null }), { compact: true, noStar: true }); }),
         r90.length ? null : D.empty('최근 90일 신호가 없습니다.')),
       r90.length > 12 ? h('p', { class: 'note', text: '최근 12건만 보입니다. 나머지는 아래 「모든 소식」에서 봅니다.' }) : null);
   }

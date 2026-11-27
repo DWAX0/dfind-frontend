@@ -14,7 +14,10 @@
   D.set(main, D.header('메일 리포트', '날짜별로 보낸 요약 메일을 다시 봅니다', {
     right: h('span', { class: 'chips' },
       h('button', { type: 'button', class: 'btn small', text: '◀ 이전 달', onclick: function () { move(-1); } }), label,
-      h('button', { type: 'button', class: 'btn small', text: '다음 달 ▶', onclick: function () { move(1); } })) }), card);
+      h('button', { type: 'button', class: 'btn small', text: '다음 달 ▶', onclick: function () { move(1); } })) }),
+    // 관리자: 요약 메일 자동 발송 시각 (메일 수신자 화면에서 옮김)
+    D.role === 'admin' && D.scheduleCard ? D.scheduleCard('mail_daily', '요약 메일 자동 발송 시각') : null,
+    card);
   load();
 
   function move(n) {

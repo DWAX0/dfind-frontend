@@ -278,19 +278,22 @@
     disc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7', mail: 'M3 6h18v12H3zM3 6l9 7 9-7', status: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18',
     users: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8',
     pen: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4', star: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z', gear: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4', log: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
-    list: 'M4 4h16v16H4zM4 9h16M4 14h16M10 9v11'
+    list: 'M4 4h16v16H4zM4 9h16M4 14h16M10 9v11',
+    font: 'M4 19 9 5l5 14M6 14h6M15 19l3-8 3 8M16 17h4'
   };
   var MENU = [
     { label: '요약', items: [['summary', 'SUMMARY', 'index.html', I.sum], ['scrap', '내 스크랩', 'scrap.html', I.star]] },
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
     // 분야별 최신 정보: 최근 소식 확인 (기본 최근 7일). 처음부터 모두 보는 전체 리스트(list.html)는 각 화면의 '전체 리스트 보기'·검색에서
     { label: '분야별 최신 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit],
-      ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc], ['market', '뉴스', 'market.html', I.market]] },
+      ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc], ['market', '뉴스', 'market.html', I.market],
+      ['list', '전체 보기', 'list.html', I.list]] },
     // [5] = 'admin' 이면 관리자에게만 보이는 메뉴
     { label: '메일 관리', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen, null, 'admin'],
       ['recipients', '메일 수신자', 'admin-recipients.html', I.users, null, 'admin']] },
     { label: '수집 관리', items: [['status', '수집 현황', 'status.html', I.status], ['settings', '기준 정보', 'admin-settings.html', I.gear, null, 'admin'],
-      ['logs', '로그 관리', 'admin-logs.html', I.log, null, 'admin']] }
+      ['logs', '로그 관리', 'admin-logs.html', I.log, null, 'admin']] },
+    { label: '관리자', admin: true, items: [['users', '사용자 관리', 'admin-users.html', I.users]] }
   ];
 
   function renderNav(active, role) {
@@ -316,7 +319,9 @@
     });
     // 메뉴 아래: 다음 자동 실행 (진한 칸) · 수집 상태
     if (D.user) kids.push(D.h('div', { class: 'side-card dday', id: 'side-next' }, D.h('small', { text: '다음 일정' }), D.h('b', { text: '확인 중…' })),
-      D.h('a', { class: 'side-card stat', id: 'side-stat', href: D.root + 'status.html' }, D.h('b', { text: '수집 상태' }), D.h('span', { text: '확인 중…' })));
+      D.h('a', { class: 'side-card stat', id: 'side-stat', href: D.root + 'status.html' }, D.h('b', { text: '수집 상태' }), D.h('span', { text: '확인 중…' })),
+      // 글자 크기 (왼쪽 메뉴 맨 아래)
+      D.h('button', { type: 'button', class: 'btn small side-font', id: 'font-toggle', onclick: toggleFont }, D.svg(I.font, 18), D.h('span')));
     D.set(nav, D.h('div', { class: 'side-top' }, brand, toggle), D.h('div', { class: 'side-body', id: 'side-body' }, kids));
     if (D.user) loadNextSchedule();
     renderGnb(role);
@@ -334,18 +339,15 @@
       wrap.append(gnb, main);
     }
     var ROLE = { admin: '관리자', viewer: '조회' };
-    // 1줄: 사이트 · 마지막 수집 · 로그인 정보 / 2줄: 통합 검색 (가운데, 넓게)
+    // 1줄: 로그인 정보 (오른쪽) / 2줄: 통합 검색 (가운데, 넓게). 시스템명·마지막 수집·글자 크기는 왼쪽 메뉴에
     var search = gnbSearch();
+    var name = D.userName || (D.user && D.user.email ? D.user.email.split('@')[0] : '');
     D.set(gnb, D.h('div', { class: 'gnb-top' },
-      D.h('div', { class: 'gnb-site' }, D.h('b', { text: 'D*Find' }), D.h('span', { text: '유망 디지털헬스케어 기업 발굴' })),
-      D.h('div', { class: 'gnb-crawl' }, D.svg('M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18', 18),
-        D.h('span', { text: '마지막 수집' }), D.h('b', { id: 'last-crawl', text: '확인 중…' }), D.h('span', { id: 'crawl-health' })),
       D.h('div', { class: 'gnb-right' },
-        role === 'admin' ? D.h('button', { type: 'button', class: 'btn primary small', onclick: openMailDialog },
-          D.svg('M3 6h18v12H3zM3 6l9 7 9-7', 18), '메일 리포트 전송') : null,
-        D.h('button', { type: 'button', class: 'btn small', id: 'font-toggle', onclick: toggleFont }),
-        D.user ? D.h('span', { class: 'gnb-user' }, D.svg('M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 18),
-          D.h('span', { class: 'gnb-email', title: D.user.email, text: D.userName ? D.userName + ' (' + D.user.email + ')' : D.user.email }), role ? D.badge(ROLE[role] || role, role === 'admin' ? 'bad' : 'gray') : null) : null,
+        role === 'admin' ? D.h('button', { type: 'button', class: 'btn small icon-btn', title: '메일 리포트 전송', 'aria-label': '메일 리포트 전송', onclick: openMailDialog },
+          D.svg('M3 6h18v12H3zM3 6l9 7 9-7', 20)) : null,
+        D.user ? D.h('span', { class: 'gnb-user', title: D.user.email }, D.svg('M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 18),
+          D.h('b', { class: 'gnb-name', text: name }), role === 'admin' ? D.badge(ROLE.admin, 'bad') : null) : null,
         D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null)),
       search ? D.h('div', { class: 'gnb-search-row' }, search) : null);
     setFontLabel();
@@ -528,14 +530,10 @@
       var all = {};
       rows.forEach(function (r) { all[r.source_system] = 1; if (['failed', 'structure_error', 'auth_error'].indexOf(r.status) >= 0) bad[r.source_system] = 1; });
       var nAll = Object.keys(all).length, nBad = Object.keys(bad).length;
-      document.getElementById('last-crawl').textContent = last ? D.fmtTime(last) : '기록 없음';
-      var hl = document.getElementById('crawl-health');
-      hl.textContent = nAll ? (nAll - nBad) + '곳 정상' + (nBad ? ' · 점검 필요 ' + nBad + '곳' : '') : '';
-      hl.className = nBad ? 'bad' : 'ok';
       var st = document.getElementById('side-stat');
       if (st) D.set(st, D.h('b', { text: '수집 상태' }), D.h('span', { text: nAll ? '정상 ' + (nAll - nBad) + ' · 점검 필요 ' + nBad : '기록 없음' }),
         D.h('span', { text: '마지막 ' + (last ? D.fmtTime(last) : '–') }));
-    } catch (e) { document.getElementById('last-crawl').textContent = '확인 못 함'; }
+    } catch (e) { var st2 = document.getElementById('side-stat'); if (st2) D.set(st2, D.h('b', { text: '수집 상태' }), D.h('span', { text: '확인 못 함' })); }
   }
   /* 다음 자동 실행 (수집·메일 중 가장 가까운 것) */
   async function loadNextSchedule() {
@@ -564,7 +562,7 @@
   // ---- 글자 크기 ----------------------------------------------------------
   function bigOn() { try { return localStorage.getItem('dfind-big') === '1'; } catch (e) { return false; } }
   function applyFont() { document.documentElement.classList.toggle('big', bigOn()); }
-  function setFontLabel() { var b = document.getElementById('font-toggle'); if (b) b.textContent = bigOn() ? '글자 보통으로' : '글자 크게'; }
+  function setFontLabel() { var b = document.getElementById('font-toggle'); if (b && b.lastChild) b.lastChild.textContent = bigOn() ? '글자 보통으로' : '글자 크게'; }
   function toggleFont() { try { localStorage.setItem('dfind-big', bigOn() ? '0' : '1'); } catch (e) { /* 저장 안 돼도 이번 화면만 */ } applyFont(); setFontLabel(); }
   applyFont();
 

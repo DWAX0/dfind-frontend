@@ -45,16 +45,16 @@
     var u = await upd;
     if (u && u.error) { D.set(updCard, D.fail(u.error)); return; }
     updates = u || [];
-    st.updShown = 8;
+    st.updShown = 24;
     drawUpdates();
   }
 
   /* ---- 기준일 업데이트 소식이 있는 기업 ---- */
   function itemLink(it) {
     var t = D.clean(it.title) || '(제목 없음)';
-    // 뉴스는 언론사 원문, 그 밖은 대시보드 정보 보기
-    return /^news:/.test(it.item_key) && it.url
-      ? h('a', { class: 'upd-title', href: it.url, target: '_blank', rel: 'noopener noreferrer', title: '언론사 원문 (새 창)', text: t })
+    // 원문 주소가 있으면 바로 (새 창), 없으면 대시보드 정보 보기
+    return it.url
+      ? h('a', { class: 'upd-title', href: it.url, target: '_blank', rel: 'noopener noreferrer', title: '원문 (새 창)', text: t })
       : h('a', { class: 'upd-title', href: D.itemHref(it.item_key), text: t });
   }
   function drawUpdates() {
@@ -67,25 +67,55 @@
     var head = h('div', { class: 'card-head' }, h('h2', { id: 'upd-h', text: (isToday ? '오늘' : D.fmtLong(st.asOf)) + ' 업데이트 소식이 있는 기업' }),
       h('span', { class: 'note', text: list.length + '곳 · 그날 새로 들어왔거나 그날 날짜인 인허가·임상·NECA·공시·뉴스 · 순위 높은 순' }));
     if (!list.length) { D.set(updCard, head, D.empty((isToday ? '오늘' : '이 날') + ' 업데이트된 기업 소식이 없습니다.')); return; }
-    D.set(updCard, head, h('ul', { class: 'upd-list' }, list.slice(0, st.updShown).map(function (u) {
-      var kinds = {};
-      u.items.forEach(function (it) { kinds[it.kind] = (kinds[it.kind] || 0) + 1; });
-      var lines = h('ul', { class: 'upd-items' }, u.items.slice(0, 3).map(function (it) {
-        return h('li', null, D.catBadge(it.category, it.kind), itemLink(it), it.source_label ? h('span', { class: 'note', text: it.source_label }) : null);
+    // 카드: 기업명 + 신호 태그만. 누르면 팝업으로 그날 소식 전부
+    D.set(updCard, head, h('div', { class: 'upd-cards' }, list.slice(0, st.updShown).map(function (u) {
+      var tags = tagsOf(u.items);
+      return h('button', { type: 'button', class: 'upd-co-card', 'aria-haspopup': 'dialog', title: u.company_name + ' 업데이트 소식 ' + u.items.length + '건 보기',
+        onclick: function () { openUpdates(u); } },
+        h('span', { class: 'upd-card-name', text: u.company_name }),
+        h('span', { class: 'upd-tags' }, tags.map(function (t) { return h('span', { class: 'sig-tag sig-' + t.cat }, t.label, t.n > 1 ? h('b', { text: t.n }) : null); })));
+    })), list.length > st.updShown ? h('button', { type: 'button', class: 'btn more', text: '더 보기 (' + (list.length - st.updShown) + '곳)', onclick: function () { st.updShown += 24; drawUpdates(); } }) : null);
+  }
+  // 신호 태그: 뉴스 · 공시 · 임상 · R&D · 혁신 지정 · 허가 · 신의료기술 · 인허가
+  function tagOf(it) {
+    var k = it.kind || '';
+    if (/^news:/.test(it.item_key)) return ['market', '뉴스'];
+    if (it.category === 'disclosure') return ['disclosure', '공시'];
+    if (it.category === 'research') return ['research', /임상/.test(k) ? '임상' : 'R&D'];
+    if (/혁신/.test(k)) return ['permit', '혁신 지정'];
+    if (/허가/.test(k)) return ['permit', '허가'];
+    if (/신의료|유예|NECA/.test(k)) return ['permit', '신의료기술'];
+    return [it.category || 'permit', '인허가'];
+  }
+  function tagsOf(items) {
+    var m = {}, order = [];
+    items.forEach(function (it) {
+      var t = tagOf(it), key = t[1];
+      if (!m[key]) { m[key] = { cat: t[0], label: t[1], n: 0 }; order.push(key); }
+      m[key].n++;
+    });
+    return order.map(function (k) { return m[k]; });
+  }
+  function openUpdates(u) {
+    var tags = tagsOf(u.items);
+    var dlg = h('dialog', { class: 'dialog wide upd-dlg', 'aria-labelledby': 'upd-dlg-h' },
+      h('div', { class: 'card-head' },
+        h('h2', { id: 'upd-dlg-h', text: u.company_name }),
+        u.sc ? h('span', { class: 'note', text: u.sc.rank + '위 · ' + u.sc.total + '점' }) : null, u.sc ? rankDelta(u.sc) : null,
+        h('a', { class: 'btn small right', href: D.companyHref(u.company_id), text: '기업 정보 보기 →' }),
+        h('button', { type: 'button', class: 'btn small', text: '닫기', onclick: function () { dlg.close(); } })),
+      h('p', { class: 'note', text: (st.asOf === TODAY ? '오늘' : D.fmtLong(st.asOf)) + ' 업데이트 소식 ' + u.items.length + '건 · 제목을 누르면 원문' }),
+      tags.map(function (t) {
+        return h('section', { class: 'upd-sec' },
+          h('h3', null, h('span', { class: 'sig-tag sig-' + t.cat, text: t.label }), h('span', { class: 'note', text: ' ' + t.n + '건' })),
+          h('ul', { class: 'upd-items' }, u.items.filter(function (it) { return tagOf(it)[1] === t.label; }).map(function (it) {
+            return h('li', null, D.catBadge(it.category, it.kind), itemLink(it),
+              h('span', { class: 'note', text: [D.fmt(it.item_date), it.source_label].filter(Boolean).join(' · ') }));
+          })));
       }));
-      var rest = u.items.length > 3 ? h('button', { type: 'button', class: 'link-btn', text: '외 ' + (u.items.length - 3) + '건 더 보기 ▾', onclick: function (e) {
-        u.items.slice(3).forEach(function (it) { lines.appendChild(h('li', null, D.catBadge(it.category, it.kind), itemLink(it), it.source_label ? h('span', { class: 'note', text: it.source_label }) : null)); });
-        e.currentTarget.remove();
-      } }) : null;
-      return h('li', { class: 'upd-row' },
-        h('div', { class: 'upd-co' },
-          h('a', { class: 'company-link upd-name', href: D.companyHref(u.company_id), text: u.company_name }),
-          u.sc ? h('span', { class: 'note', text: u.sc.rank + '위 · ' + u.sc.total + '점' }) : h('span', { class: 'note', text: '점수 없음' }),
-          u.sc ? rankDelta(u.sc) : null),
-        h('div', { class: 'upd-body' },
-          h('div', { class: 'upd-kinds' }, Object.keys(kinds).map(function (k) { return h('span', { class: 'upd-kind' }, k, h('b', { text: kinds[k] })); })),
-          lines, rest));
-    })), list.length > st.updShown ? h('button', { type: 'button', class: 'btn more', text: '더 보기 (' + (list.length - st.updShown) + '곳)', onclick: function () { st.updShown += 20; drawUpdates(); } }) : null);
+    dlg.addEventListener('close', function () { dlg.remove(); });
+    document.body.appendChild(dlg);
+    dlg.showModal();
   }
 
   // 전날보다 순위나 점수가 바뀐 기업 (새로 들어온 기업 포함)

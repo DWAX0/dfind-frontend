@@ -30,7 +30,7 @@
   }));
   function syncUrl() { history.replaceState(null, '', days ? '?days=' + days : '?day=' + day); }
   D.set(main, D.header('수집 현황', '날짜마다 출처별로 언제 몇 번(회차) 돌았고 성공했는지, 실패했다면 왜인지 봅니다 (한국 시간)', { right: pick }),
-    D.role === 'admin' ? D.scheduleCard('crawl_daily', '매일 수집 자동 실행 시각') : null, strip, tiles, list);
+    D.role === 'admin' ? D.scheduleCard('crawl_daily', '수집 자동 실행 시각') : null, strip, tiles, list);
   route();
   function route() { if (days) { strip.hidden = true; load(); } else { strip.hidden = false; loadDay(); } }
 

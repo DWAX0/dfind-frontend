@@ -1,21 +1,27 @@
-/* 관리자 › 기준 정보: 키워드(·비슷한 말) / 뉴스 분류 / 언론사 RSS / 언론사 이름 / 언론사 우선순위 / 사용자·권한 */
+/* 관리자 › 기준 정보: 키워드(·비슷한 말) / 뉴스 분류 / 언론사 RSS / 언론사 이름 / 언론사 우선순위
+   관리자 › 사용자 관리 (admin-users.html): 같은 파일의 사용자·권한 부분만 (탭 없이) */
 (async function () {
   'use strict';
-  var main = await D.boot('settings', { admin: true });
+  var USERS_PAGE = /admin-users\.html/.test(location.pathname);
+  var main = await D.boot(USERS_PAGE ? 'users' : 'settings', { admin: true });
   if (!main) return;
   var h = D.h;
-  var tab = new URLSearchParams(location.search).get('tab') || 'kw';
+  var tab = USERS_PAGE ? 'user' : new URLSearchParams(location.search).get('tab') || 'kw';
+  if (!USERS_PAGE && tab === 'user') { location.replace('admin-users.html'); return; }  // 예전 주소
   var msg = h('p', { class: 'notice', role: 'status', hidden: true });
   var tabs = h('div', { class: 'tabs', role: 'tablist', 'aria-label': '관리 항목' });
   var panel = h('section', { class: 'card', role: 'tabpanel' });
   function say(text, kind) { msg.hidden = false; msg.className = 'notice ' + (kind || 'info'); msg.textContent = text; }
   function err(e) { return (e && e.message) || String(e); }
 
-  D.set(main, D.header('기준 정보 관리', '수집 키워드, 뉴스를 가져올 언론사, 대시보드 사용자를 관리합니다. 바꾼 내용은 다음 수집부터 반영됩니다.', { admin: true }),
-    tabs, msg, panel);
+  D.set(main, USERS_PAGE
+    ? D.header('사용자 관리', '대시보드 사용자 추가 · 이름 · 권한 · 비밀번호 초기화', { admin: true })
+    : D.header('기준 정보 관리', '수집 키워드, 뉴스 분류, 뉴스를 가져올 언론사를 관리합니다. 바꾼 내용은 다음 수집부터 반영됩니다.', { admin: true }),
+    USERS_PAGE ? null : tabs, msg, panel);
 
-  var TABS = [['kw', '키워드', drawKeywords], ['topic', '뉴스 분류', drawTopics], ['feed', '언론사 RSS', drawFeeds], ['pub', '언론사 이름', drawPublishers],
-              ['rank', '언론사 우선순위', drawRanks], ['user', '사용자·권한', drawUsers]];
+  var TABS = USERS_PAGE ? [['user', '사용자·권한', drawUsers]]
+    : [['kw', '키워드', drawKeywords], ['topic', '뉴스 분류', drawTopics], ['feed', '언론사 RSS', drawFeeds], ['pub', '언론사 이름', drawPublishers],
+       ['rank', '언론사 우선순위', drawRanks]];
   function drawTabs() {
     D.set(tabs, TABS.map(function (t) {
       return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': tab === t[0] ? 'true' : 'false', text: t[1],
