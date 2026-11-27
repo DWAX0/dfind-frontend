@@ -80,6 +80,7 @@
   function tagOf(it) {
     var k = it.kind || '';
     if (/^news:/.test(it.item_key)) return ['market', '뉴스'];
+    if (/조달|입찰/.test(k)) return ['disclosure', '공공 조달'];
     if (it.category === 'disclosure') return ['disclosure', '공시'];
     if (it.category === 'research') return ['research', /임상/.test(k) ? '임상' : 'R&D'];
     if (/혁신/.test(k)) return ['permit', '혁신 지정'];

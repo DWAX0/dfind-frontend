@@ -6,7 +6,7 @@
   var main = await D.boot('summary-input', { admin: true });
   if (!main) return;
   var h = D.h;
-  var CAT = { permit: '인허가·제도', market: '시장·투자', research: '연구·과제', disclosure: '공시' };
+  var CAT = { permit: '인허가·제도', market: '시장·투자', research: '연구·과제', disclosure: '공시·조달' };
   var items = [];
   var day = D.today();
 

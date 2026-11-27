@@ -3,7 +3,7 @@
 (async function () {
   'use strict';
   var h = D.h;
-  var CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시'], ['market', '뉴스']];
+  var CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시·조달'], ['market', '뉴스']];
   var p = new URLSearchParams(location.search);
   var cat = CATS.some(function (c) { return c[0] === p.get('cat'); }) ? p.get('cat') : 'permit';
   var main = await D.boot('list');  // 왼쪽 메뉴 › 분야별 최신 정보 › 전체 보기

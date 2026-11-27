@@ -112,7 +112,7 @@
     permit: { label: '인허가·제도', page: 'regulatory.html' },
     market: { label: '뉴스', page: 'market.html' },
     research: { label: '연구·과제', page: 'research.html' },
-    disclosure: { label: '공시', page: 'disclosure.html' }
+    disclosure: { label: '공시·조달', page: 'disclosure.html' }
   };
   D.badge = function (text, cls) { return D.h('span', { class: 'badge ' + (cls || 'gray'), text: text }); };
   var HOSP = { '병원 협력': 1, '병원·임상': 1, '전시·해외': 1 };   // 병원·해외 신호는 초록
@@ -286,7 +286,7 @@
     { label: '기업', items: [['radar', '기업 레이더', 'radar.html', I.radar], ['company', '기업 정보', 'company.html', I.comp]] },
     // 분야별 최신 정보: 최근 소식 확인 (기본 최근 7일). 처음부터 모두 보는 전체 리스트(list.html)는 각 화면의 '전체 리스트 보기'·검색에서
     { label: '분야별 최신 정보', items: [['regulatory', '인허가·제도', 'regulatory.html', I.permit],
-      ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시', 'disclosure.html', I.disc], ['market', '뉴스', 'market.html', I.market],
+      ['research', '연구·과제', 'research.html', I.research], ['disclosure', '공시·조달', 'disclosure.html', I.disc], ['market', '뉴스', 'market.html', I.market],
       ['list', '전체 보기', 'list.html', I.list]] },
     // [5] = 'admin' 이면 관리자에게만 보이는 메뉴
     { label: '메일 관리', items: [['mail', '메일 리포트', 'mail.html', I.mail], ['summary-input', '오늘의 결론 입력', 'admin-summary.html', I.pen, null, 'admin'],
@@ -413,7 +413,7 @@
   }
 
   /* 메일 미리 보기: 새 소식을 분야별로 (같은 기사 묶음은 대표 1건 + 외 N건, 대표 = 언론사 우선순위가 높은 것) */
-  var MAIL_CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시'], ['market', '뉴스']];
+  var MAIL_CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시·조달'], ['market', '뉴스']];
   function mailNews(items) {
     var seen = {}, out = [];
     items.forEach(function (it) {

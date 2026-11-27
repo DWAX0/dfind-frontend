@@ -8,7 +8,7 @@
   var h = D.h;
   var p = new URLSearchParams(location.search);
   var st = { q: (p.get('q') || '').trim(), per: p.get('per') || 'all', scope: p.get('scope') || 'all' };
-  var CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시'], ['market', '뉴스']];
+  var CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시·조달'], ['market', '뉴스']];
   var PERS = [['all', '전체 기간'], ['365', '최근 1년'], ['90', '최근 3개월'], ['30', '최근 1개월']];
   var SCOPES = [['all', '전부'], ['company', '기업']].concat(CATS);
 
