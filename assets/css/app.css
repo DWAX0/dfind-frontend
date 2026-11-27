@@ -1266,3 +1266,11 @@ table.dd-tree td.wrap { position: relative; }
 .dd-acts { display: inline-flex; gap: 6px; align-items: center; margin-left: 10px; vertical-align: middle; }
 .dd-tree .w-n { width: 80px; } .dd-tree .w-co { width: 200px; } .dd-tree .w-date { width: 110px; }
 .wk-today { border-color: #f0b46b; } .wk-today.on { border-color: var(--navy); }
+
+/* 뉴스 제목: 보통 굵기 · 대웅/대웅제약 주황 굵게 · 분류 키워드 검정 굵게 */
+table.news-table a.list-title, .lead-news a.lead-title, .lead-item.first .lead-title { font-weight: 400; }
+.hl-dw { color: #e8590c; font-weight: 700; }
+.hl-topic { color: #111; font-weight: 700; }
+a:hover .hl-topic, a:focus-visible .hl-topic { color: inherit; }
+.pub-etc { color: var(--muted, #6b7280); cursor: help; }
+.dd-group .dd-more { margin-left: 10px; vertical-align: middle; }

@@ -257,19 +257,17 @@
   }
   function matchQ(vals) { var t = bd.q.trim().toLowerCase(); return !t || vals.some(function (v) { return v && String(v).toLowerCase().indexOf(t) >= 0; }); }
   bd.byCo = true; bd.openCo = {};
-  function purpose(r) { return r.review_purpose || r.intended_use || ''; }
   function productRows(list, withCompany) {
     var body = h('tbody');
     list.forEach(function (r) {
       var isNew = recentNew(r.approval_date), op = !!bd.open['p' + r.registration_id], rt = RT[r.registration_type] || [r.registration_type || '–', 'gray'];
-      var pu = purpose(r);
       var row = h('tr', { class: 'dd-row' + (isNew ? ' is-new' : '') + (op ? ' open' : ''), tabindex: '0', 'aria-expanded': op ? 'true' : 'false',
         onclick: function (e) { if (e.target.closest('a,button')) return; bd.open['p' + r.registration_id] = !op; drawTable(); },
         onkeydown: function (e) { if (e.key === 'Enter' && !e.target.closest('a,button')) { bd.open['p' + r.registration_id] = !op; drawTable(); } } },
         h('td', { class: 'nowrap num-cell-left', text: r.approval_date || '–' }),
         withCompany ? h('td', { class: 'nowrap' }, D.companyLink(r.company_id, r.company_name) || h('span', { class: 'note', text: '–' })) : null,
         h('td', { class: 'nowrap mono', text: r.product_category_code || '–' }),
-        h('td', { class: 'wrap' }, productCell(r, rt, pu)),
+        h('td', { class: 'wrap' }, productCell(r, rt)),
         h('td', { class: 'nowrap' }, r.review_post_id ? h('button', { type: 'button', class: 'btn small', text: '원문·요약', onclick: function () { openReview(r); } })
           : h('span', { class: 'note', title: '이 번호의 심사검토 결과 공개 글이 아직 없거나 수집 전입니다', text: '공개 글 없음' })),
         h('td', null, isNew ? D.badge('NEW', 'new') : null));
@@ -277,14 +275,13 @@
       if (op) body.appendChild(h('tr', { class: 'detail' }, h('td', { colspan: withCompany ? 6 : 5 }, productDetail(r))));
     });
     return h('div', { class: 'table-wrap' }, h('table', { class: 'grid dd-table' },
-      h('thead', null, h('tr', null, ['허가일'].concat(withCompany ? ['기업명'] : [], ['제품코드', '제품 및 사용목적', '원문', '신규']).map(function (x) { return h('th', { scope: 'col', text: x }); }))), body));
+      h('thead', null, h('tr', null, ['허가일'].concat(withCompany ? ['기업명'] : [], ['제품코드', '제품', '원문', '신규']).map(function (x) { return h('th', { scope: 'col', text: x }); }))), body));
   }
-  // 제품 칸: 제품명 + [구분 태그 허가·인증·신고] + 제조·수입 + 상태 / 아랫줄 사용목적
-  function productCell(r, rt, pu) {
+  // 제품 칸: 제품명 + [구분 태그 허가·인증·신고] + 제조·수입 + 상태 (사용목적은 세부 내용에서)
+  function productCell(r, rt) {
     return [h('span', { class: 'dd-name' }, h('b', { text: pname(r.product_name) }), D.badge(rt[0], rt[1]),
         r.origin ? h('span', { class: 'note', text: r.origin === 'import' ? '수입' : '제조' }) : null,
-        RS[r.approval_status] ? D.badge(RS[r.approval_status], 'bad') : null),
-      pu ? h('span', { class: 'dd-purpose', title: pu, text: (r.review_purpose ? '사용목적(심사) · ' : '사용목적 · ') + pu }) : null];
+        RS[r.approval_status] ? D.badge(RS[r.approval_status], 'bad') : null)];
   }
   function productDetail(r) {
     return h('dl', { class: 'info' },
@@ -307,7 +304,6 @@
       var g = groups[k], op = !!bd.openCo[k], it = g.items;
       var nNew = it.filter(function (r) { return recentNew(r.approval_date); }).length;
       var names = []; it.forEach(function (r) { var n = pname(r.product_name); if (names.indexOf(n) < 0) names.push(n); });
-      var pu = it.map(purpose).filter(Boolean)[0];
       function toggle() { bd.openCo[k] = !op; drawTable(); }
       // 대분류 (회사, 초록)
       body.appendChild(h('tr', { class: 'dd-group' + (op ? ' open' : ''), tabindex: '0', 'aria-expanded': op ? 'true' : 'false',
@@ -318,27 +314,28 @@
         h('td', { class: 'nowrap' }, g.id ? D.companyLink(g.id, g.name) : h('b', { text: g.name }), nNew ? D.badge('NEW ' + nNew, 'new') : null),
         h('td', { class: 'nowrap' }, h('b', { class: 'num', text: it.length + '개' })),
         h('td', { class: 'wrap' }, h('span', { class: 'dd-name', text: names.slice(0, 3).join(', ') + (names.length > 3 ? ' 외 ' + (names.length - 3) + '개' : '') }),
-          pu ? h('span', { class: 'dd-purpose', title: pu, text: '사용목적 · ' + pu }) : null)));
+          h('button', { type: 'button', class: 'btn small dd-more', 'aria-expanded': op ? 'true' : 'false', text: op ? '접기' : '상세보기', onclick: toggle }))));
       if (!op) return;
-      // 소분류 (제품, 회색): 허가일 · 제품코드 · 제품 및 사용목적 (구분은 제품명 옆 태그)
+      // 소분류 (제품, 회색): 허가일 · 제품코드 · 제품 (구분은 제품명 옆 태그)
+      // 상세보기로 펼치면 제품마다 번호·등급·사용목적 등 세부 내용까지 바로 보임 (제품 줄을 누르면 접힘)
       it.forEach(function (r) {
-        var rt = RT[r.registration_type] || [r.registration_type || '–', 'gray'], key = 'p' + r.registration_id, sop = !!bd.open[key];
+        var rt = RT[r.registration_type] || [r.registration_type || '–', 'gray'], key = 'p' + r.registration_id, sop = bd.open[key] !== false;
         body.appendChild(h('tr', { class: 'dd-sub' + (recentNew(r.approval_date) ? ' is-new' : '') + (sop ? ' open' : ''), tabindex: '0', 'aria-expanded': sop ? 'true' : 'false',
           onclick: function (e) { if (!e.target.closest('a,button')) { bd.open[key] = !sop; drawTable(); } },
           onkeydown: function (e) { if (e.key === 'Enter' && !e.target.closest('a,button')) { bd.open[key] = !sop; drawTable(); } } },
           h('td'),
           h('td', { class: 'nowrap num-cell-left', text: r.approval_date || '–' }),
           h('td', { class: 'nowrap mono', colspan: 2, text: r.product_category_code || '–' }),
-          h('td', { class: 'wrap' }, productCell(r, rt, purpose(r)),
+          h('td', { class: 'wrap' }, productCell(r, rt),
             h('span', { class: 'dd-acts' }, recentNew(r.approval_date) ? D.badge('NEW', 'new') : null,
               r.review_post_id ? h('button', { type: 'button', class: 'btn small', text: '원문·요약', onclick: function () { openReview(r); } }) : null))));
         if (sop) body.appendChild(h('tr', { class: 'detail' }, h('td'), h('td', { colspan: 4 }, productDetail(r))));
       });
     });
     return [h('div', { class: 'table-wrap' }, h('table', { class: 'grid dd-tree' },
-      h('thead', null, h('tr', null, [['', 'w-star'], ['허가일', 'w-date'], ['회사 / 제품코드', 'w-co'], ['제품 수', 'w-n'], ['제품 및 사용목적', null]].map(function (x) {
+      h('thead', null, h('tr', null, [['', 'w-star'], ['허가일', 'w-date'], ['회사 / 제품코드', 'w-co'], ['제품 수', 'w-n'], ['제품', null]].map(function (x) {
         return h('th', { scope: 'col', class: x[1], text: x[0] }); }))), body)),
-      h('p', { class: 'note', text: '회사 ' + order.length + '곳 · 제품 ' + list.length + '개 · 최근 허가가 있는 회사 순 · 초록 줄(회사)을 누르면 회색 줄(제품)이 펼쳐지고, 제품 줄을 누르면 번호·등급 등 자세히' }),
+      h('p', { class: 'note', text: '회사 ' + order.length + '곳 · 제품 ' + list.length + '개 · 최근 허가가 있는 회사 순 · 초록 줄(회사)의 상세보기를 누르면 제품마다 번호·등급·사용목적 등 세부 내용까지 펼쳐짐' }),
       order.length > bd.shown ? h('button', { type: 'button', class: 'btn more', text: '100곳 더 보기', onclick: function () { bd.shown += 100; drawTable(); } }) : null];
   }
   function productTable() {

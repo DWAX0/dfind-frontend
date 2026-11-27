@@ -123,6 +123,36 @@
     return id ? D.h('a', { class: 'company-link', href: D.companyHref(id), text: name }) : D.h('b', { text: name });
   };
   /* 정보 한 줄 (dash_feed 행) */
+  /* 뉴스 제목 강조: 대웅·대웅제약 = 주황 굵게, 뉴스 분류 키워드 = 검정 굵게 (제목 자체는 보통 굵기)
+     분류 키워드는 띄어쓰기 무시 (서버 분류와 같게) */
+  var DW = '대웅제약|대웅';
+  function looseRe(term) {
+    return term.replace(/\s+/g, '').split('').map(function (c) { return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('\\s*');
+  }
+  D.newsTitle = function (title, topicTerm) {
+    var t = D.clean(title) || '(제목 없음)';
+    var parts = [DW];
+    if (topicTerm && topicTerm.trim()) parts.push(looseRe(topicTerm.trim()));
+    var re = new RegExp('(' + parts.join('|') + ')', 'gi'), out = [], last = 0, m;
+    var dw = new RegExp('^(' + DW + ')$');
+    while ((m = re.exec(t))) {
+      if (!m[0]) { re.lastIndex++; continue; }
+      if (m.index > last) out.push(t.slice(last, m.index));
+      out.push(D.h('b', { class: dw.test(m[0]) ? 'hl-dw' : 'hl-topic', text: m[0] }));
+      last = m.index + m[0].length;
+    }
+    if (last < t.length) out.push(t.slice(last));
+    return out;
+  };
+  /* 뉴스 매체명: 주요 언론사 13곳만 이름, 나머지는 '기타' (마우스를 올리면 실제 이름) */
+  var MAJOR_PUB = { '데일리팜': '데일리팜', '메디파나뉴스': '메디파나', '메디파나': '메디파나', '의학신문': '의학신문', '약업신문': '약업신문',
+    '약사공론': '약사공론', '조선일보': '조선일보', '중앙일보': '중앙일보', '동아일보': '동아일보', '매일경제': '매일경제',
+    '한국경제': '한국경제', '연합뉴스': '연합뉴스', '뉴시스': '뉴시스', '뉴스1': '뉴스1' };
+  D.pubName = function (label) {
+    var l = String(label || '').trim();
+    return MAJOR_PUB[l] ? D.h('span', { text: MAJOR_PUB[l] }) : D.h('span', { class: 'pub-etc', title: l || '언론사 이름 없음', text: '기타' });
+  };
+
   /* 제목 링크: 원문 주소가 있으면 바로 (새 창), 없을 때만 대시보드 정보 보기 */
   D.titleLink = function (f, cls) {
     var t = D.clean(f.title) || '(제목 없음)';
@@ -352,8 +382,7 @@
     setFontLabel();
   }
 
-  /* ---- 통합 검색 (위쪽 막대): 검색어 + [키워드] 고르기 → search.html ----
-     키워드 = 키워드 사전(분야·신호·규제) · 뉴스 분류 · 최근 검색어 (이 브라우저에만) */
+  /* ---- 통합 검색 (위쪽 막대): 검색어 + [최근 검색] → search.html (최근 검색어는 이 브라우저에만) ---- */
   var RECENT_KEY = 'dfind.recentSearch';
   D.recentSearches = function () { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, 8); } catch (e) { return []; } };
   D.rememberSearch = function (q) {
@@ -367,42 +396,27 @@
     var u = new URLSearchParams(extra || {}); u.set('q', q);
     location.href = D.root + 'search.html?' + u.toString();
   };
-  var kwCache = null;
-  D.loadSearchKeywords = async function () {
-    if (kwCache) return kwCache;
-    var kws = [], topics = [];
-    try { kws = await D.q(D.sb.from('keywords').select('term,keyword_category').eq('is_active', true).order('term')); } catch (e) { console.error(e); }
-    try { topics = await D.q(D.sb.from('news_topic_terms').select('topic,term').order('term_id')); } catch (e) { topics = []; }
-    kwCache = { kws: kws, topics: topics };
-    return kwCache;
-  };
-  var KW_GROUP = [['domain', '분야'], ['regulation', '인허가·규제'], ['signal', '신호'], ['organization', '기관']];
+  // 최근 검색어만 (이 브라우저에 저장, 8개)
   D.keywordPicker = function (onPick) {
-    var box = D.h('div', { class: 'kw-picker', role: 'dialog', 'aria-label': '키워드 고르기' }, D.loading('키워드를 불러오는 중…'));
-    D.loadSearchKeywords().then(function (k) {
-      var recent = D.recentSearches();
-      function chips(list) { return D.h('div', { class: 'kw-pick-chips' }, list.map(function (t) { return D.h('button', { type: 'button', class: 'chip small', text: t, onclick: function () { onPick(t); } }); })); }
-      D.set(box,
-        recent.length ? [D.h('h4', { text: '최근 검색' }), chips(recent)] : null,
-        KW_GROUP.map(function (g) {
-          var list = k.kws.filter(function (x) { return x.keyword_category === g[0]; }).map(function (x) { return x.term; });
-          return list.length ? [D.h('h4', { text: g[1] + ' 키워드' }), chips(list)] : null;
-        }),
-        k.topics.length ? [D.h('h4', { text: '뉴스 분류 키워드 (자주 쓰는 것)' }),
-          chips(k.topics.filter(function (x) { return x.topic !== 'ai'; }).map(function (x) { return x.term; }).filter(function (t) { return t.length >= 2; }).slice(0, 40))] : null,
-        D.h('p', { class: 'note small', text: '키워드를 누르면 바로 검색합니다. 대표어·비슷한 말(예: 의료AI = 의료 인공지능)을 같이 찾습니다.' }));
-    });
-    return box;
+    var recent = D.recentSearches();
+    return D.h('div', { class: 'kw-picker', role: 'dialog', 'aria-label': '최근 검색어' },
+      D.h('h4', { text: '최근 검색어' }),
+      recent.length ? D.h('div', { class: 'kw-pick-chips' }, recent.map(function (t) { return D.h('button', { type: 'button', class: 'chip small', text: t, onclick: function () { onPick(t); } }); }))
+        : D.h('p', { class: 'note', text: '아직 검색한 말이 없습니다.' }),
+      recent.length ? D.h('button', { type: 'button', class: 'link-btn', text: '최근 검색어 지우기', onclick: function (e) {
+        try { localStorage.removeItem(RECENT_KEY); } catch (er) { /* 저장 안 되는 환경 */ }
+        e.currentTarget.parentNode.replaceWith(D.keywordPicker(onPick));
+      } }) : null);
   };
   function gnbSearch() {
     if (!D.role) return null;
     var input = D.h('input', { type: 'search', class: 'input', id: 'gnb-q', placeholder: '기업 · 제품 · 키워드 통합 검색', 'aria-label': '통합 검색',
       value: /search\.html/.test(location.pathname) ? (new URLSearchParams(location.search).get('q') || '') : '' });
     var pop = D.h('div', { class: 'gnb-pop', hidden: true });
-    var kwBtn = D.h('button', { type: 'button', class: 'btn small', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', text: '키워드 ▾', onclick: function (e) {
+    var kwBtn = D.h('button', { type: 'button', class: 'btn small', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', text: '최근 검색 ▾', onclick: function (e) {
       e.stopPropagation();
       var open = pop.hidden;
-      if (open && !pop.firstChild) pop.appendChild(D.keywordPicker(function (t) { input.value = t; D.goSearch(t); }));
+      if (open) D.set(pop, D.keywordPicker(function (t) { input.value = t; D.goSearch(t); }));  // 열 때마다 새로
       pop.hidden = !open; kwBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     } });
     document.addEventListener('click', function (e) { if (!pop.hidden && !pop.contains(e.target)) { pop.hidden = true; kwBtn.setAttribute('aria-expanded', 'false'); } });

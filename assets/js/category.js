@@ -153,8 +153,9 @@
   D.dupToggle = function (dups) {
     if (!dups || !dups.length) return null;
     var list = h('ul', { class: 'dup-list', hidden: true }, dups.map(function (f) {
-      return h('li', null, h('span', { class: 'dup-pub', text: f.source_label || '' }),
-        h('a', f.url ? { href: f.url, target: '_blank', rel: 'noopener noreferrer', text: D.clean(f.title) } : { href: D.itemHref(f.item_key), text: D.clean(f.title) }),
+      return h('li', null, h('span', { class: 'dup-pub' }, /^news:/.test(f.item_key || '') && D.pubName ? D.pubName(f.source_label) : (f.source_label || '')),
+        h('a', f.url ? { href: f.url, target: '_blank', rel: 'noopener noreferrer' } : { href: D.itemHref(f.item_key) },
+          /^news:/.test(f.item_key || '') && D.newsTitle ? D.newsTitle(f.title) : D.clean(f.title)),
         h('span', { class: 'dup-date', text: f.item_date || '' }));
     }));
     var btn = h('button', { type: 'button', class: 'dup-btn', 'aria-expanded': 'false', text: '외 ' + dups.length + '건 ▾',

@@ -8,10 +8,13 @@
   var KINDS = ['인허가·정책', '투자', '병원·임상', '연구·R&D', '제품·출시', '전시·해외', '경쟁사·파트너사'];
 
   // 기사명 링크: 원문(언론사)으로 바로, 새 창. 주소가 없을 때만 대시보드 상세
-  function articleLink(f, cls) {
-    var t = D.clean(f.title) || '(제목 없음)';
-    return f.url ? h('a', { class: cls, href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '언론사 원문 (새 창)', text: t })
-                 : h('a', { class: cls, href: D.itemHref(f.item_key), text: t });
+  // 제목: 대웅·대웅제약은 주황 굵게, 분류를 정한 키워드는 검정 굵게
+  function articleLink(f, cls, ctx) {
+    var term = ctx ? tagOf(ctx, { item_key: f.kind_from || f.item_key }).term : null;
+    var a = f.url ? h('a', { class: cls, href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '언론사 원문 (새 창)' })
+                  : h('a', { class: cls, href: D.itemHref(f.item_key) });
+    D.newsTitle(f.title, term).forEach(function (x) { a.appendChild(typeof x === 'string' ? document.createTextNode(x) : x); });
+    return a;
   }
   function tagOf(ctx, f) { return (ctx.tags || {})[f.item_key] || {}; }
   function aiTag(ctx, g) {
@@ -25,7 +28,7 @@
   function titleCell(g, q, ctx) {
     var f = g.f;
     return h('td', { class: 'news-title' },
-      articleLink(f, 'list-title'),
+      articleLink(f, 'list-title', ctx),
       D.isNewItem(f) ? D.badge('NEW', 'new') : null,
       aiTag(ctx, g),
       D.foundInside(f, q) ? D.badge('본문에서 찾음', 'warn') : null,
@@ -41,7 +44,7 @@
         var f = g.f;
         return h('tr', null,
           h('td', null, topicChip(ctx, f)),
-          h('td', { class: 'nowrap', text: f.source_label || '' }),
+          h('td', { class: 'nowrap' }, D.pubName(f.source_label)),
           titleCell(g, ctx.q, ctx),
           h('td', { class: 'nowrap', text: f.item_date || '' }),
           h('td', null, D.favButton('item', f.item_key, D.clean(f.title), { small: true })));
@@ -58,9 +61,9 @@
         return h('article', { class: 'lead-item' + (i === 0 ? ' first' : '') },
           h('div', { class: 'list-meta' }, topicChip(ctx, f), D.isNewItem(f) ? D.badge('NEW', 'new') : null, aiTag(ctx, g),
             D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })),
-          articleLink(f, 'lead-title'),
+          articleLink(f, 'lead-title', ctx),
           f.detail ? h('p', { class: 'lead-summary', text: D.clean(f.detail).slice(0, i === 0 ? 260 : 140) }) : null,
-          h('p', { class: 'note' }, [f.source_label, D.fmt(f.item_date)].filter(Boolean).join(' · '),
+          h('p', { class: 'note' }, D.pubName(f.source_label), f.item_date ? ' · ' + D.fmt(f.item_date) : '',
             g.dups.length ? ' · 외 ' + g.dups.length + '건 (같은 기사)' : '',
             f.company_name ? ' · ' : '', D.companyLink(f.company_id, f.company_name)));
       })));

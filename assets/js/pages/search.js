@@ -32,7 +32,7 @@
       h('form', { class: 'search-row', role: 'search', onsubmit: function (e) { e.preventDefault(); st.q = input.value.trim(); go(); } },
         h('label', { class: 'sr', for: 's-q', text: '검색어' }), input,
         h('button', { type: 'submit', class: 'btn primary' }, D.svg('M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4', 20), '검색')),
-      h('details', { class: 'kw-details' }, h('summary', { text: '키워드에서 고르기' }), pickBox),
+      h('details', { class: 'kw-details' }, h('summary', { text: '최근 검색어' }), pickBox),
       h('div', { class: 'search-filters' }, perBox, scopeBox), termsNote),
     res);
   pickBox.appendChild(D.keywordPicker(function (t) { input.value = t; st.q = t; go(); }));
