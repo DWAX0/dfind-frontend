@@ -912,7 +912,7 @@ svg.chart .bar.s4 { fill: var(--accent); } svg.chart .bar.s5 { fill: var(--marke
 /* 수집 현황 일자별: 날짜 띠 */
 .day-strip { display: flex; align-items: center; gap: 8px; }
 .day-strip .input[type=date] { width: auto; min-width: 150px; margin-left: 6px; }
-.day-chips { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; flex: 1; min-width: 0; }
+.day-chips { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; flex: 1; min-width: 0; }
 .day-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border: 1px solid var(--line); border-radius: 10px;
   background: var(--card); font: inherit; cursor: pointer; min-width: 0; }
 .day-chip:hover { border-color: var(--accent); }
@@ -1117,7 +1117,7 @@ table.list-table .badge { white-space: nowrap; }
 a.tab { text-decoration: none; color: inherit; }
 table.list-table td .badge { margin-left: 6px; }
 table.list-table td:nth-child(2) .badge { margin-left: 0; }
-/* 기업 정보 3열 배치: 1열 기본정보 · 2열 조기 발굴 점수/인허가 현황 · 3열 최근 90일 신호. 통계는 그 아래 전체 너비 */
+/* 기업 정보 칸 배치 (공통 부분. 줄·칸은 아래 '2줄 × 2칸') */
 .co-grid { display: grid; gap: 18px; align-items: stretch;
   grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr) minmax(300px, 1fr);
   grid-template-areas: "info score recent" "info status recent"; }
@@ -1128,14 +1128,6 @@ table.list-table td:nth-child(2) .badge { margin-left: 0; }
 /* 최근 90일 신호: 옆 칸 높이만큼, 넘치면 안에서 스크롤 */
 .co-grid .recent-card { height: 100%; display: flex; flex-direction: column; }
 .co-grid .recent-card .recent-list { flex: 1 1 0; min-height: 300px; max-height: none; overflow-y: auto; }
-@media (max-width: 1280px) {
-  .co-grid { grid-template-columns: minmax(260px, 1fr) minmax(0, 1.6fr);
-    grid-template-areas: "info score" "info status" "recent recent"; }
-  .co-grid .recent-card .recent-list { flex: none; max-height: 420px; min-height: 0; }
-}
-@media (max-width: 820px) {
-  .co-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "info" "score" "status" "recent"; }
-}
 /* ---- 통합 검색 ---- */
 .gnb-search { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 360px; max-width: 560px; padding: 4px 6px 4px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--sunk, #f7f9fb); }
 .gnb-search > svg { color: var(--muted); flex: none; }
@@ -1210,9 +1202,6 @@ table.co-table a.co-latest:hover { color: #0a7a5c; }
 /* 기업 정보: 최근 90일 신호 (밑줄 없음), 점수·인허가 현황 카드는 내용 높이만큼 */
 .recent-card a, .recent-card a.list-title { text-decoration: none; }
 .recent-card .list-item.compact .list-title { font-weight: 600; }
-.co-grid { grid-template-rows: auto 1fr; }
-.co-grid > .ga-score, .co-grid > .ga-status { align-self: start; }
-.co-grid > .ga-score > .card, .co-grid > .ga-status > .card { flex: none; }
 dl.info dt.dart-h, dl.info dd.dart-h { grid-column: 1 / -1; }
 dl.info dd.dart-h { border-top: 0; padding-top: 0; }
 .dart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 8px 0 0; }
@@ -1232,3 +1221,34 @@ dl.info dd.dart-h { border-top: 0; padding-top: 0; }
 .sch-edit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--sunk, #f7f9fb); border: 1px solid var(--line); }
 .schedule-card [role=status]:not(:empty) { display: block; margin-top: 8px; }
 .sch-time.off { color: var(--muted); text-decoration: line-through; }
+/* 기업 정보 2줄 × 2칸 (2026-11-27): [기본정보 | 최근 90일 신호] / [조기 발굴 점수 | 인허가 현황] — 같은 줄은 높이를 맞춰 빈 곳 없음 */
+.co-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto; align-items: stretch;
+  grid-template-areas: "info recent" "score status"; }
+.co-grid > .ga-score, .co-grid > .ga-status { align-self: stretch; }
+.co-grid > .ga-score > .card, .co-grid > .ga-status > .card { flex: 1 1 auto; }
+.co-grid .recent-card .recent-list { flex: 1 1 0; min-height: 260px; max-height: none; }
+@media (max-width: 1100px) {
+  .co-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "info" "recent" "score" "status"; }
+  .co-grid .recent-card .recent-list { flex: none; max-height: 420px; min-height: 0; }
+}
+.star-slot { margin-left: 4px; }
+.focus-card { border: 2px solid #0a7a5c; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; background: #f3fbf8; }
+.focus-card:focus { outline: none; }
+.focus-title { margin: 6px 0; font-size: 1.1rem; }
+.focus-detail { white-space: pre-line; line-height: 1.7; margin: 0 0 8px; }
+/* 위쪽 막대 한 줄: 검색(왼쪽) · 로그인 정보(오른쪽) */
+.gnb { padding: 10px 36px; }
+.gnb-top { justify-content: space-between; flex-wrap: nowrap; }
+.gnb-top > .gnb-search { flex: 0 1 640px; max-width: 640px; min-height: 44px; border-radius: 22px; padding: 3px 6px 3px 14px; }
+.gnb-top > .gnb-right { margin-left: auto; flex: none; }
+@media (max-width: 900px) { .gnb-top { flex-wrap: wrap; } .gnb-top > .gnb-search { flex-basis: 100%; max-width: none; } }
+/* 메일 리포트 › 발송 요약 (자동 발송 시각 + 받는 사람 + 마지막 발송) */
+.mail-over { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.mail-over > .schedule-card { margin: 0; }
+.mail-over-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.mail-over-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card, #fff); color: var(--ink); text-decoration: none; }
+a.mail-over-tile:hover { border-color: #0a7a5c; }
+.mail-over-tile b { font-size: 1.6rem; color: var(--navy); }
+.mail-over-tile.warn b { color: var(--red, #b91c1c); }
+@media (max-width: 1100px) { .mail-over { grid-template-columns: 1fr; } }
+.mail-over > .schedule-card { display: flex; flex-direction: column; justify-content: center; }

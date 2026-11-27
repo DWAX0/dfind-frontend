@@ -7,7 +7,6 @@
   var rows = [];
   var st = { edit: null, del: null };
   var msg = h('p', { class: 'notice', role: 'status', hidden: true });
-  var summary = h('section', { class: 'tiles', 'aria-label': '발송 요약' });
   var listBox = h('div');
 
   function say(text, kind) { msg.hidden = false; msg.className = 'notice ' + (kind || 'info'); msg.textContent = text; }
@@ -16,8 +15,8 @@
   var fDaily = h('input', { type: 'checkbox', id: 'r-daily', checked: true }), fWeekly = h('input', { type: 'checkbox', id: 'r-weekly' });
 
   D.set(main, 
-    D.header('메일 수신자 관리', '요약 메일을 받을 사람을 정합니다. 자동 발송 시각은 메일 리포트 화면 위에서, 시험 발송은 위쪽 메일 아이콘에서', { admin: true }),
-    summary, msg,
+    D.header('메일 수신자 관리', '요약 메일을 받을 사람을 정합니다. 받는 사람 수 · 자동 발송 시각 · 마지막 발송은 메일 리포트 화면 위에서, 시험 발송은 위쪽 메일 아이콘에서', { admin: true }),
+    msg,
     h('section', { class: 'card', 'aria-labelledby': 'add-h' }, h('h2', { id: 'add-h', text: '받는 사람 추가' }),
       h('div', { class: 'tiles' },
         h('label', { class: 'field', for: 'r-name' }, '이름', fName), h('label', { class: 'field', for: 'r-email' }, '이메일', fEmail),
@@ -36,17 +35,6 @@
     ]);
     if (!Array.isArray(r[0])) { D.set(listBox, D.fail(r[0])); return; }
     rows = r[0];
-    var last = r[1][0];
-    var active = rows.filter(function (x) { return x.is_active; }).length;
-    var RES = { success: '성공', partial: '일부 실패', failed: '실패' };
-    D.set(summary, 
-      h('div', { class: 'tile' }, h('span', { class: 'tile-label', text: '받는 사람' }), h('span', { class: 'tile-num' }, active, h('small', { text: '명' })),
-        h('span', { class: 'tile-note', text: '중지 ' + (rows.length - active) + '명 포함 전체 ' + rows.length + '명' })),
-      h('div', { class: 'tile' }, h('span', { class: 'tile-label', text: '발송 시각' }), h('span', { class: 'tile-num', text: '09:00' }),
-        h('span', { class: 'tile-note', text: '매일 · 수집이 끝난 뒤 발송 (고정)' })),
-      h('div', { class: 'tile' }, h('span', { class: 'tile-label', text: '마지막 발송' }),
-        h('span', { class: 'tile-num', text: last ? RES[last.status] : '기록 없음' }),
-        h('span', { class: 'tile-note', text: last ? D.fmtTime(last.sent_at) + ' · ' + last.success_count + '/' + last.recipient_count + '명' : '메일 발송 기능 연결 전' })));
     draw();
   }
 

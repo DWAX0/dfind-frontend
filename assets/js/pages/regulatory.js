@@ -8,13 +8,15 @@
   var h = D.h;
   var DAY = '일월화수목금토';
   // 종류 묶음 (요약 칸·탭)
+  // [코드, 이름(무슨 정보인지), 종류들, 출처(마우스를 올리면)]
   var GROUPS = [
-    ['innov', '혁신의료기기 지정', ['혁신의료기기 지정']],
-    ['permit', '허가·심사', ['디지털의료기기 허가', '신개발 의료기기 심사', '품목 허가']],
-    ['neca', 'NECA 신의료기술·유예', ['신의료기술 평가', '평가 유예', '혁신의료기술 평가']],
-    ['notice', '식약처·NECA 공지', ['식약처 공지', 'NECA 공지']],
-    ['board', '디지털의료기기 정보방', ['디지털의료기기 정보방']]
+    ['innov', '혁신의료기기 지정', ['혁신의료기기 지정'], '출처: 이머디 › 혁신의료기기 지정 현황'],
+    ['permit', '제품 허가·심사', ['디지털의료기기 허가', '신개발 의료기기 심사', '품목 허가'], '출처: 식약처 의료기기 허가 정보(공공데이터) · 이머디 신개발 의료기기 심사'],
+    ['neca', '신의료기술 평가·유예', ['신의료기술 평가', '평가 유예', '혁신의료기술 평가'], '출처: NECA 한국보건의료연구원'],
+    ['notice', '제도·정책 공지', ['식약처 공지', 'NECA 공지'], '출처: 식약처 보도자료·공지 · NECA 공지'],
+    ['board', '디지털의료기기 대장', ['디지털의료기기 정보방'], '출처: 이머디 › 디지털의료기기 정보방 (제품 허가·인증·신고 대장, 업허가 현황, 심사검토 결과)']
   ];
+  function srcOf(code) { var g = GROUPS.filter(function (x) { return x[0] === code; })[0]; return g ? g[3] : null; }
   function groupOf(kind) { for (var i = 0; i < GROUPS.length; i++) if (GROUPS[i][2].indexOf(kind) >= 0) return GROUPS[i][0]; return 'etc'; }
 
   // ---- 날짜 도우미 (한국 날짜 문자열 YYYY-MM-DD 로만 계산) ----
@@ -33,7 +35,7 @@
   var thisMon = monday(D.today());
   var ALL_FROM = '2000-01-01';
   // '전체 목록' 탭은 없앰 (처음부터 모두 보기는 전체 리스트 화면). 예전 주소 ?all=1 은 이번 주로
-  var st = { from: p.get('from') || thisMon, to: p.get('to') || D.addDays(thisMon, 6), q: p.get('q') || '', group: p.get('g') || 'all', onlyNew: p.get('new') === '1' };
+  var st = { from: p.get('q') ? ALL_FROM : p.get('from') || thisMon, to: p.get('q') ? D.today() : p.get('to') || D.addDays(thisMon, 6), q: p.get('q') || '', group: p.get('g') || 'all', onlyNew: p.get('new') === '1' };
   function isAll() { return st.from === ALL_FROM; }
   var weekRows = [], rows = [], files = {};
 
@@ -45,7 +47,13 @@
   var from = h('input', { type: 'date', class: 'input', id: 'wk-from', 'aria-label': '시작일' });
   var to = h('input', { type: 'date', class: 'input', id: 'wk-to', 'aria-label': '종료일' });
   var q = h('input', { type: 'search', class: 'input grow', id: 'wk-q', placeholder: '업체·품목·제목·본문·첨부 내용', value: st.q,
-    onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); st.q = q.value.trim(); load(); } } });
+    onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } } });
+  // 검색: 고른 주 안에서만 찾으면 대부분 비어 '안 되는 것'처럼 보여서, 기간과 관계없이 전체에서 찾음
+  function doSearch() {
+    st.q = q.value.trim();
+    if (st.q) { st.from = ALL_FROM; st.to = D.today(); bd.q = st.q; } else if (isAll()) { st.from = thisMon; st.to = D.addDays(thisMon, 6); }
+    load();
+  }
   var sum = h('section', { class: 'wk-sum', 'aria-label': '종류별 건수' });
   var tabs = h('div', { class: 'tabs wrap-tabs', role: 'tablist', 'aria-label': '종류' });
   var newChip = h('button', { type: 'button', class: 'chip', 'aria-pressed': st.onlyNew ? 'true' : 'false', onclick: function () { st.onlyNew = !st.onlyNew; newChip.setAttribute('aria-pressed', st.onlyNew ? 'true' : 'false'); save(); drawTable(); } });
@@ -73,9 +81,9 @@
           st.from = a; st.to = b; load();
         } })),
       h('div', { class: 'search-row' },
-        h('label', { class: 'field grow', for: 'wk-q' }, '검색어 (고른 주·기간 안에서, 본문·첨부 내용까지)', q),
+        h('label', { class: 'field grow', for: 'wk-q' }, '인허가·제도에서 찾기 (기간과 관계없이 전체 · 업체·제품·제목·본문·첨부 내용까지)', q),
         h('div', { class: 'search-btns' },
-          h('button', { type: 'button', class: 'btn primary', onclick: function () { st.q = q.value.trim(); load(); } }, D.svg('M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4', 20), '검색'),
+          h('button', { type: 'button', class: 'btn primary', onclick: doSearch }, D.svg('M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4', 20), '검색'),
           h('button', { type: 'button', class: 'btn', text: '초기화', onclick: function () { q.value = ''; st.q = ''; st.group = 'all'; st.onlyNew = false; newChip.setAttribute('aria-pressed', 'false'); setWeek(thisMon); } })))),
     sum, listCard)));
 
@@ -112,7 +120,7 @@
   async function load() {
     save();
     var w = isoWeek(st.from);
-    label.textContent = isAll() ? '전체 목록 (기간 상관없이)' : isWeek() ? w.y + '년 ' + w.w + '주차 · ' + md(st.from) + '(' + DAY[dow(st.from)] + ')–' + md(st.to) + '(' + DAY[dow(st.to)] + ')'
+    label.textContent = isAll() ? (st.q ? '"' + st.q + '" 검색 결과 (전체 기간)' : '전체 기간') : isWeek() ? w.y + '년 ' + w.w + '주차 · ' + md(st.from) + '(' + DAY[dow(st.from)] + ')–' + md(st.to) + '(' + DAY[dow(st.to)] + ')'
       : '기간 ' + st.from + ' ~ ' + st.to;
     if (isWeek()) pick.value = w.y + '-W' + String(w.w).padStart(2, '0');
     from.value = isAll() ? '' : st.from; to.value = isAll() ? '' : st.to;
@@ -129,7 +137,7 @@
     D.set(sum, GROUPS.map(function (g) {
       var list = rows.filter(function (f) { return groupOf(f.kind) === g[0]; });
       var nNew = list.filter(function (f) { return D.isNewItem(f); }).length;
-      return h('button', { type: 'button', class: 'wk-box', 'aria-pressed': st.group === g[0] ? 'true' : 'false', onclick: function () { st.group = st.group === g[0] ? 'all' : g[0]; save(); drawTable(); drawSum(); } },
+      return h('button', { type: 'button', class: 'wk-box', title: g[3], 'aria-pressed': st.group === g[0] ? 'true' : 'false', onclick: function () { st.group = st.group === g[0] ? 'all' : g[0]; save(); drawTable(); drawSum(); } },
         h('span', { class: 'wk-box-label', text: g[1] }), h('b', { text: list.length }), nNew ? h('span', { class: 'badge new', text: '신규 ' + nNew }) : h('span', { class: 'note', text: '건' }));
     }));
   }
@@ -138,12 +146,13 @@
     newChip.textContent = '신규만 보기 (' + nNewAll + ')';
     D.set(tabs, [['all', '전체', rows.length]].concat(GROUPS.map(function (g) { return [g[0], g[1], rows.filter(function (f) { return groupOf(f.kind) === g[0]; }).length]; }))
       .map(function (t) {
-        return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': st.group === t[0] ? 'true' : 'false', onclick: function () { st.group = t[0]; save(); drawTable(); drawSum(); } },
+        return h('button', { type: 'button', class: 'tab', role: 'tab', title: srcOf(t[0]), 'aria-selected': st.group === t[0] ? 'true' : 'false', onclick: function () { st.group = t[0]; save(); drawTable(); drawSum(); } },
           t[1], h('span', { class: 'badge gray', text: t[2] }));
       }));
     if (st.group === 'board') { D.set(table, boardPanel()); return; }
     var list = rows.filter(function (f) { return (st.group === 'all' || groupOf(f.kind) === st.group) && (!st.onlyNew || D.isNewItem(f)); });
-    if (!isAll()) { D.set(table, feedTable(list)); return; }
+    if (!isAll() || st.q) { D.set(table, st.q ? [h('p', { class: 'notice' }, '"' + st.q + '" 이(가) 들어간 인허가·제도 소식 ' + list.length + '건 (기간과 관계없이). ',
+      h('button', { type: 'button', class: 'link-btn', text: '검색 지우고 이번 주로', onclick: function () { q.value = ''; st.q = ''; bd.q = ''; setWeek(thisMon); } })), feedTable(list)] : feedTable(list)); return; }
     // 전체 목록: 건수가 많아 기본은 회사별로 묶어 보여 줌 (접힌 줄 = 회사 요약)
     var mode = h('div', { class: 'chips group-mode', role: 'group', 'aria-label': '전체 목록 보기' },
       [['company', '회사별로 묶기'], ['flat', '하나씩 보기']].map(function (m) {
@@ -217,16 +226,15 @@
   function recentNew(d) { return !!d && d >= D.addDays(D.today(), -NEW_DAYS); }
   function boardPanel() {
     var box = h('div', { class: 'board-panel' });
-    var posts = rows.filter(function (f) { return groupOf(f.kind) === 'board'; });
-    var SUBS = [['products', '제품허가·인증·신고 대장', bd.products ? bd.products.length : '…'], ['licenses', '업허가 현황 (제조·수입)', bd.licenses ? bd.licenses.length : '…'],
-      ['posts', '정보방 게시글 (고른 기간)', posts.length]];
+    // 제품 대장 · 업허가 대장 두 가지만 (게시글은 제품의 '원문·요약'으로 이어짐)
+    var SUBS = [['products', '제품 허가·인증·신고', bd.products ? bd.products.length : '…'], ['licenses', '제조·수입 업허가', bd.licenses ? bd.licenses.length : '…']];
+    if (bd.sub === 'posts') bd.sub = 'products';
     var bar = h('div', { class: 'chips sub-tabs', role: 'group', 'aria-label': '디지털의료기기 정보방 보기' }, SUBS.map(function (x) {
       return h('button', { type: 'button', class: 'chip', 'aria-pressed': bd.sub === x[0] ? 'true' : 'false', onclick: function () { bd.sub = x[0]; bd.shown = 100; drawTable(); } },
         x[1] + ' ', h('b', { text: x[2] }));
     }));
     var body = h('div');
     D.set(box, bar, body);
-    if (bd.sub === 'posts') { D.set(body, feedTable(posts)); return box; }
     var key = bd.sub;
     if (!bd[key]) {
       D.set(body, D.loading());
@@ -240,11 +248,11 @@
   function filterBar(chipsDef, cur, setter, ph) {
     var q = h('input', { type: 'search', class: 'input', placeholder: ph, value: bd.q, 'aria-label': '대장에서 찾기' });
     q.addEventListener('input', function () { bd.q = q.value; bd.shown = 100; clearTimeout(q._t); q._t = setTimeout(function () { drawTable(); setTimeout(function () { var x = document.querySelector('.board-panel input[type=search]'); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } }, 0); }, 250); });
+    // 거르기는 고르는 칸(select)으로 줄임 (칩 줄이 많으면 탭처럼 보여 헷갈림)
     return h('div', { class: 'top board-filter' }, chipsDef.map(function (grp) {
-      return h('span', { class: 'chips', role: 'group', 'aria-label': grp.label }, grp.items.map(function (it) {
-        return h('button', { type: 'button', class: 'chip small', 'aria-pressed': grp.cur === it[0] ? 'true' : 'false', text: it[1] + (it[2] != null ? ' ' + it[2] : ''),
-          onclick: function () { grp.set(it[0]); bd.shown = 100; drawTable(); } });
-      }));
+      var sel = h('select', { class: 'input small', 'aria-label': grp.label, onchange: function () { grp.set(sel.value); bd.shown = 100; drawTable(); } },
+        grp.items.map(function (it) { return h('option', { value: it[0], selected: grp.cur === it[0], text: it[1] + (it[2] != null ? ' (' + it[2] + ')' : '') }); }));
+      return h('label', { class: 'field inline' }, h('span', { class: 'note', text: grp.label }), sel);
     }), h('span', { class: 'right' }, q));
   }
   function matchQ(vals) { var t = bd.q.trim().toLowerCase(); return !t || vals.some(function (v) { return v && String(v).toLowerCase().indexOf(t) >= 0; }); }

@@ -55,8 +55,9 @@
   }
   function go(d) { day = d; open = {}; syncUrl(); loadDay(); }
   function drawStrip(byDay) {
-    var end = day > D.addDays(D.today(), -7) ? D.today() : D.addDays(day, 6);
-    var ds = []; for (var i = 13; i >= 0; i--) ds.push(D.addDays(end, -i));
+    // 7일씩 (고른 날이 최근 4일 안이면 오늘까지, 아니면 고른 날이 가운데쯤)
+    var end = day > D.addDays(D.today(), -4) ? D.today() : D.addDays(day, 3);
+    var ds = []; for (var i = 6; i >= 0; i--) ds.push(D.addDays(end, -i));
     var inp = h('input', { class: 'input', type: 'date', value: day, max: D.today(), 'aria-label': '날짜 고르기' });
     inp.addEventListener('change', function () { if (inp.value) go(inp.value); });
     var KTXT = { bad: '확인이 필요한 실패 있음', fixed: '실패가 있었지만 다시 정상', ok: '모두 정상', none: '수집 기록 없음' };

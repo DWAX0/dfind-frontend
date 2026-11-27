@@ -40,6 +40,8 @@
     return {
       el: el, state: st, fillKinds: fillKinds,
       setKind: function (k) { st.kind = k; kind.value = k; save(); },
+      setRange: function (from, to) { bar.setRange(from, to); },
+      range: function () { return bar.range(); },
       start: function () { bar.start(); }
     };
   };
@@ -166,6 +168,17 @@
     return ![f.title, f.detail, f.company_name].some(function (x) { return x && D.clean(x).toLowerCase().indexOf(s) >= 0; });
   };
 
+  // 주차 계산 (월요일 시작, ISO 주차)
+  function wkDow(d) { return new Date(d + 'T12:00:00+09:00').getUTCDay(); }
+  function wkMonday(d) { return D.addDays(d, -((wkDow(d) + 6) % 7)); }
+  function wkNum(d) {
+    var t = new Date(d + 'T00:00:00Z'), day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    var y = t.getUTCFullYear();
+    return Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
+  }
+  function wkMd(d) { return Number(d.slice(5, 7)) + '/' + d.slice(8); }
+
   D.categoryPage = async function (o) {
     var main = await D.boot(o.page);
     if (!main) return;
@@ -182,12 +195,50 @@
     // 분야별 최신 정보 → 같은 분야 전체 리스트로
     var LIST_CAT = { research: 'research', disclosure: 'disclosure', market: 'market' }[o.page];
     var allLink = LIST_CAT ? h('a', { class: 'btn', href: 'list.html?cat=' + LIST_CAT, text: '전체 리스트 보기 →' }) : null;
+    // 왼쪽: 주차별 건수 (인허가·제도와 같은 모양, 누르면 그 주)
+    var weekRow = h('div', { class: 'wk-row', role: 'group', 'aria-label': '주차 (이번 주부터 지난 8주)' });
+    var weekRows = null;
+    var body = [panel.el, tiles, listCard];
     D.set(main, D.header(o.title, o.sub, { dot: 'dot-' + (o.dot || o.category), right: h('div', { class: 'group' }, right, allLink) }),
-      o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, o.groupable ? D.dupRules() : null, panel.el, tiles, listCard);
+      o.notice ? h('p', { class: 'notice info', text: o.notice }) : null, o.groupable ? D.dupRules() : null,
+      h('div', { class: 'reg-layout' },
+        h('aside', { class: 'card wk-side', 'aria-labelledby': 'wk-side-h' }, h('h2', { id: 'wk-side-h', class: 'wk-side-h', text: '주차별 건수' }),
+          h('p', { class: 'note', text: '이번 주부터 지난 주 순 · NEW = 새로 들어온 것' + (o.groupable ? ' · 같은 기사는 1건' : '') }), weekRow),
+        h('div', { class: 'reg-main' }, body)));
     panel.start();
+    loadWeeks();
+
+    async function loadWeeks() {
+      var mon = wkMonday(D.today());
+      try {
+        var r = await D.rpc('dash_feed', { p_from: D.addDays(mon, -56), p_to: D.addDays(mon, 6), p_category: o.category || null, p_limit: 5000 });
+        if (o.only) r = r.filter(o.only);
+        if (o.groupable) {
+          var g = {}; try { await D.loadPubRanks(); g = await D.loadNewsGroups(r); } catch (e) { g = {}; }
+          r = D.groupSame(r, true, g).map(function (x) { return x.f; });
+        }
+        weekRows = r;
+      } catch (e) { weekRows = []; }
+      drawWeeks();
+    }
+    function drawWeeks() {
+      if (!weekRows) return;
+      var mon = wkMonday(D.today()), cur = panel.range();
+      D.set(weekRow, [0, -1, -2, -3, -4, -5, -6, -7, -8].map(function (k) {
+        var a = D.addDays(mon, k * 7), b = D.addDays(a, 6);
+        var inWeek = weekRows.filter(function (f) { return f.item_date >= a && f.item_date <= b; });
+        var nNew = inWeek.filter(D.isNewItem).length;
+        var on = cur.from === a && (cur.to === b || (k === 0 && cur.to === D.today()));
+        return h('button', { type: 'button', class: 'wk' + (k === 0 ? ' now' : '') + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false',
+          onclick: function () { panel.setRange(a, b); } },
+          h('span', { class: 'wk-top' }, h('b', { text: (k === 0 ? '이번 주 · ' : '') + wkNum(a) + '주차' }), h('small', { text: wkMd(a) + '–' + wkMd(b) })),
+          h('span', { class: 'wk-cnt' }, h('span', { class: 'wk-n', text: inWeek.length + '건' }), nNew ? h('span', { class: 'wk-new', text: 'NEW ' + nNew }) : null));
+      }));
+    }
 
     async function load(r) {
       ctx.q = r.q; ctx.kind = r.kind; ctx.shown = 60; ctx.files = {};
+      drawWeeks();
       D.set(tiles, D.loading()); D.set(listCard, D.loading());
       try {
         ctx.rows = await D.rpc('dash_feed', { p_from: r.from, p_to: r.to, p_category: o.category || null, p_limit: 2000, p_query: r.q || null });

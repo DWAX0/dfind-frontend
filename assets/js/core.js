@@ -135,7 +135,7 @@
     if (o.compact) {
       return D.h('div', { class: 'list-item compact' },
         D.h('div', { class: 'list-meta' }, D.catBadge(f.category, f.kind), D.isNewItem(f) ? D.badge('NEW', 'new') : null,
-          D.titleLink(f), D.companyLink(f.company_id, f.company_name),
+          o.href ? D.h('a', { class: 'list-title', href: o.href, text: D.clean(f.title) || '(제목 없음)' }) : D.titleLink(f), D.companyLink(f.company_id, f.company_name),
           D.h('span', { class: 'note', text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') }),
           o.noStar ? null : D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })));
     }
@@ -339,17 +339,16 @@
       wrap.append(gnb, main);
     }
     var ROLE = { admin: '관리자', viewer: '조회' };
-    // 1줄: 로그인 정보 (오른쪽) / 2줄: 통합 검색 (가운데, 넓게). 시스템명·마지막 수집·글자 크기는 왼쪽 메뉴에
+    // 한 줄: 통합 검색 (왼쪽, 예전 시스템명 자리) · 로그인 정보 (오른쪽). 시스템명·마지막 수집·글자 크기는 왼쪽 메뉴에
     var search = gnbSearch();
     var name = D.userName || (D.user && D.user.email ? D.user.email.split('@')[0] : '');
-    D.set(gnb, D.h('div', { class: 'gnb-top' },
+    D.set(gnb, D.h('div', { class: 'gnb-top' }, search,
       D.h('div', { class: 'gnb-right' },
         role === 'admin' ? D.h('button', { type: 'button', class: 'btn small icon-btn', title: '메일 리포트 전송', 'aria-label': '메일 리포트 전송', onclick: openMailDialog },
           D.svg('M3 6h18v12H3zM3 6l9 7 9-7', 20)) : null,
         D.user ? D.h('span', { class: 'gnb-user', title: D.user.email }, D.svg('M20 21v-1a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v1M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 18),
           D.h('b', { class: 'gnb-name', text: name }), role === 'admin' ? D.badge(ROLE.admin, 'bad') : null) : null,
-        D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null)),
-      search ? D.h('div', { class: 'gnb-search-row' }, search) : null);
+        D.user ? D.h('button', { type: 'button', class: 'btn small', text: '로그아웃', onclick: logout }) : null)));
     setFontLabel();
   }
 
@@ -663,6 +662,7 @@
     }
     el.start = function () { fire(); };
     el.range = range;
+    el.setRange = function (from, to) { st.per = 'range'; st.from = from; st.to = to > TODAY ? TODAY : to; fire(); };  // 주차 고르기 등
     draw();
     return el;
   };

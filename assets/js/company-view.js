@@ -242,13 +242,15 @@
             series: [{ name: '인허가·연구', values: perMonth(nonNews), cls: 's4' }, { name: '뉴스', values: perMonth(st.news), cls: 's5' }] }))));
   }
   /* 최근 90일 신호 (기업 레이더 오른쪽 패널과 같은 내용) */
-  function recentCard(all, onAll) {
+  function recentCard(all, onAll, hrefOf) {
     var lim = D.addDays(D.today(), -90);
     var r90 = all.filter(function (f) { return f.item_date >= lim; });
     return h('section', { class: 'card recent-card' }, h('div', { class: 'card-head' }, h('h2', { text: '최근 90일 신호' }), h('span', { class: 'badge gray', text: r90.length }),
       onAll ? h('button', { type: 'button', class: 'btn small right', text: '모든 소식 보기', onclick: onAll }) : null),
       // 한 줄씩: 제목을 누르면 원문(뉴스는 언론사)으로 바로. 밑줄 없음
-      h('div', { class: 'recent-list' }, r90.slice(0, 12).map(function (f) { return D.feedItem(Object.assign({}, f, { company_id: null, company_name: null }), { compact: true, noStar: true }); }),
+      h('div', { class: 'recent-list' }, r90.slice(0, 12).map(function (f) {
+        return D.feedItem(Object.assign({}, f, { company_id: null, company_name: null }), { compact: true, noStar: true, href: hrefOf ? hrefOf(f) : null });
+      }),
         r90.length ? null : D.empty('최근 90일 신호가 없습니다.')),
       r90.length > 12 ? h('p', { class: 'note', text: '최근 12건만 보입니다. 나머지는 아래 「모든 소식」에서 봅니다.' }) : null);
   }
@@ -416,10 +418,13 @@
       for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === n) { pick(i); tabCard.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     }
     var star = D.favButton('company', c.company_id, c.company_name, { text: true });
+    if (o.starSlot) { D.set(o.starSlot, star); star = null; }  // 기업 정보 화면: 위쪽 [기업 레이더] 오른쪽에
     if (o.mode === 'brief') {
       D.set(box, infoCard(data, sc, star), scoreCard(sc, c.company_name), statusCard(data, kinds, function (n) { if (o.onExpand) o.onExpand(n); }),
         data.innovations.length ? innovationSlider(data.innovations) : null,
-        recentCard(base.all, function () { if (o.onExpand) o.onExpand('모든 소식'); }));
+        // 레이더 오른쪽 패널: 신호를 누르면 기업 정보 화면에서 그 소식을 펼쳐 보여 줌
+        recentCard(base.all, function () { if (o.onExpand) o.onExpand('모든 소식'); },
+          function (f) { return D.companyHref(c.company_id) + '&focus=' + encodeURIComponent(f.item_key); }));
       return;
     }
     // 기간 고르기 (기본 최근 12개월, 12개월 이전도 볼 수 있음)
@@ -451,17 +456,39 @@
       } catch (e) { pmsg.textContent = '불러오지 못했습니다: ' + ((e && e.message) || e); }
     }
     function drawStats() { D.set(statsBox, statsCard(data, st, pickByName, periodBar)); }
-    // 3열: [기본정보] [조기 발굴 점수 / 인허가 현황] [최근 90일 신호] → 통계 (전체 너비) → 탭
+    // 2줄 × 2칸: [기본정보 | 최근 90일 신호] / [조기 발굴 점수 | 인허가 현황] → 통계 → 탭 (칸 높이를 맞춰 빈 곳 없게)
+    var focusKey = o.focus;
     D.set(box,
       h('div', { class: 'co-grid' },
         h('div', { class: 'ga ga-info' }, infoCard(data, sc, star)),
+        h('div', { class: 'ga ga-recent' }, recentCard(base.all, function () { pickByName('모든 소식'); })),  // 여기서는 원문으로 바로
         h('div', { class: 'ga ga-score' }, scoreCard(sc, c.company_name)),
-        h('div', { class: 'ga ga-status' }, statusCard(data, kinds, pickByName)),
-        h('div', { class: 'ga ga-recent' }, recentCard(base.all, function () { pickByName('모든 소식'); }))),
+        h('div', { class: 'ga ga-status' }, statusCard(data, kinds, pickByName))),
       statsBox,
       tabCard);
     drawStats();
     pick(o.tab ? Math.max(0, TABS.map(function (t) { return t[0]; }).indexOf(o.tab === '전체 소식' ? '모든 소식' : o.tab)) : 0);
+    // 고른 소식 (레이더 오른쪽 패널의 최근 신호에서 누름 → company.html?id=…&focus=…): 모든 소식 탭 맨 위에 자세히 펼쳐 보여 줌
+    function showFocus(key) {
+      var f = (st.all || []).concat(base.all || []).filter(function (x) { return x.item_key === key; })[0];
+      if (!f) return;
+      pickByName('모든 소식');
+      var detail = f.detail ? D.clean(f.detail) : '';
+      tabBody.insertBefore(h('section', { class: 'focus-card', 'aria-label': '고른 소식', tabindex: '-1' },
+        h('div', { class: 'card-head' }, h('b', { text: '고른 소식' }),
+          h('button', { type: 'button', class: 'btn small right', text: '닫기', onclick: function (e) { e.currentTarget.closest('.focus-card').remove(); } })),
+        D.h('div', { class: 'list-meta' }, D.catBadge(f.category, f.kind), D.isNewItem(f) ? D.badge('NEW', 'new') : null,
+          h('span', { class: 'note', text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') })),
+        h('h3', { class: 'focus-title', text: D.clean(f.title) }),
+        detail ? h('p', { class: 'focus-detail', text: detail }) : null,
+        h('div', { class: 'list-links' },
+          f.url ? h('a', { class: 'btn small primary', href: f.url, target: '_blank', rel: 'noopener noreferrer', text: '원문 보기 ↗' }) : null,
+          h('a', { class: 'btn small', href: D.itemHref(f.item_key), text: '수집한 내용 전체' }))), tabBody.firstChild);
+      var el = tabBody.querySelector('.focus-card');
+      setTimeout(function () { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); el.focus({ preventScroll: true }); }, 50);
+    }
+    if (focusKey) showFocus(focusKey);
+
   };
 
   /* 기업 레이더: 오른쪽 패널. [크게 보기] = 전체 화면으로 바꿔 상세 전체를 보여 줌 */

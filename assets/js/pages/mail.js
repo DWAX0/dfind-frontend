@@ -15,9 +15,30 @@
     right: h('span', { class: 'chips' },
       h('button', { type: 'button', class: 'btn small', text: '◀ 이전 달', onclick: function () { move(-1); } }), label,
       h('button', { type: 'button', class: 'btn small', text: '다음 달 ▶', onclick: function () { move(1); } })) }),
-    // 관리자: 요약 메일 자동 발송 시각 (메일 수신자 화면에서 옮김)
-    D.role === 'admin' && D.scheduleCard ? D.scheduleCard('mail_daily', '요약 메일 자동 발송 시각') : null,
+    // 관리자: 발송 요약 (받는 사람 · 자동 발송 시각 · 마지막 발송) — 메일 수신자 화면에서 옮김
+    D.role === 'admin' ? adminOverview() : null,
     card);
+
+  function adminOverview() {
+    var tiles = h('div', { class: 'mail-over-tiles' }, D.loading());
+    var RES = { success: '성공', partial: '일부 실패', failed: '실패' };
+    Promise.all([
+      D.q(D.sb.from('mail_recipients').select('recipient_id,is_active,receive_daily')).catch(function () { return []; }),
+      D.q(D.sb.from('mail_send_logs').select('*').order('sent_at', { ascending: false }).limit(1)).catch(function () { return []; })
+    ]).then(function (r) {
+      var rows = r[0] || [], last = (r[1] || [])[0];
+      var active = rows.filter(function (x) { return x.is_active && x.receive_daily; }).length;
+      D.set(tiles,
+        h('a', { class: 'mail-over-tile', href: 'admin-recipients.html' },
+          h('span', { class: 'note', text: '받는 사람' }), h('b', null, String(active), h('small', { text: ' 명' })),
+          h('span', { class: 'note', text: '전체 ' + rows.length + '명 (중지·주간만 ' + (rows.length - active) + '명) · 수신자 관리 →' })),
+        h('div', { class: 'mail-over-tile' + (last && last.status !== 'success' ? ' warn' : '') },
+          h('span', { class: 'note', text: '마지막 발송' }), h('b', { text: last ? RES[last.status] || last.status : '기록 없음' }),
+          h('span', { class: 'note', text: last ? D.fmtTime(last.sent_at) + ' · ' + last.success_count + '/' + last.recipient_count + '명' : '아직 보낸 적 없음' })));
+    });
+    return h('section', { class: 'mail-over', 'aria-label': '발송 요약' },
+      D.scheduleCard ? D.scheduleCard('mail_daily', '요약 메일 자동 발송 시각') : null, tiles);
+  }
   load();
 
   function move(n) {

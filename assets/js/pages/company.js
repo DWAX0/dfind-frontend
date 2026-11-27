@@ -158,12 +158,14 @@
     try { data = await D.rpc('dash_company', { p_company_id: cid }); } catch (e) { D.set(main, D.fail(e)); return; }
     if (!data) { D.set(main, h('a', { class: 'btn small', href: 'company.html', text: '기업 목록으로' }), D.empty('기업을 찾을 수 없습니다.')); return; }
     var box = h('div', { class: 'company-view' });
+    var starSlot = h('span', { class: 'star-slot' });
+    var qs = new URLSearchParams(location.search);
     D.set(main,
       h('div', { class: 'detail-bar' },
         h('a', { class: 'btn small', href: 'company.html' }, D.svg('M15 5l-7 7 7 7', 20), '기업 목록'),
-        h('a', { class: 'btn small', href: 'radar.html', text: '기업 레이더' })),
+        h('a', { class: 'btn small', href: 'radar.html', text: '기업 레이더' }), starSlot),
       box);
-    D.renderCompany(box, data, { mode: 'full', tab: new URLSearchParams(location.search).get('tab') });
+    D.renderCompany(box, data, { mode: 'full', tab: qs.get('tab'), focus: qs.get('focus'), starSlot: starSlot });
     document.title = data.company.company_name + ' · D*Find';
   }
 })();
