@@ -223,8 +223,17 @@
     }
     function drawWeeks() {
       if (!weekRows) return;
-      var mon = wkMonday(D.today()), cur = panel.range();
-      D.set(weekRow, [0, -1, -2, -3, -4, -5, -6, -7, -8].map(function (k) {
+      var mon = wkMonday(D.today()), cur = panel.range(), today = D.today();
+      // 뉴스: 맨 위 '오늘' (뉴스는 기본이 오늘)
+      var todayBtn = null;
+      if (o.todayChip) {
+        var tRows = weekRows.filter(function (f) { return f.item_date === today; }), tNew = tRows.filter(D.isNewItem).length;
+        var tOn = cur.from === today && cur.to === today;
+        todayBtn = h('button', { type: 'button', class: 'wk wk-today' + (tOn ? ' on' : ''), 'aria-pressed': tOn ? 'true' : 'false', onclick: function () { panel.setRange(today, today); } },
+          h('span', { class: 'wk-top' }, h('b', { text: '오늘' }), h('small', { text: wkMd(today) })),
+          h('span', { class: 'wk-cnt' }, h('span', { class: 'wk-n', text: tRows.length + '건' }), tNew ? h('span', { class: 'wk-new', text: 'NEW ' + tNew }) : null));
+      }
+      D.set(weekRow, todayBtn, [0, -1, -2, -3, -4, -5, -6, -7, -8].map(function (k) {
         var a = D.addDays(mon, k * 7), b = D.addDays(a, 6);
         var inWeek = weekRows.filter(function (f) { return f.item_date >= a && f.item_date <= b; });
         var nNew = inWeek.filter(D.isNewItem).length;

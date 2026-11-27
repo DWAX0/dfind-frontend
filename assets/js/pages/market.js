@@ -67,10 +67,10 @@
   }
 
   D.categoryPage({
-    page: 'market', category: null, dot: 'market', title: '뉴스', defaultPer: '7', groupable: true,
+    page: 'market', category: null, dot: 'market', title: '뉴스', defaultPer: '1', groupable: true, todayChip: true,  // 뉴스는 기본이 오늘
     only: function (f) { return /^news:/.test(f.item_key); },
     sub: '수집한 기사 전체 — 분류 키워드로 인허가·정책 · 투자 · 병원·임상 · 연구·R&D · 제품·출시 · 전시·해외, 그 외는 경쟁사·파트너사 (기사 날짜 기준) · 같은 기사는 매체력이 높은 언론사 기사 한 줄로 묶고 \'외 N건\'으로 접음 (건수·NEW 도 1건) · 기사명을 누르면 언론사 원문',
-    notice: '네이버 검색 기사는 이용 약관에 따라 20일이 지나면 자동으로 지워집니다. 기사 본문은 저작권 때문에 원본 사이트에서 봅니다. NEW = 마지막 뉴스 수집 이후 새로 들어온 기사.',
+    notice: '기사 본문은 저작권 때문에 원본 사이트에서 봅니다. NEW = 마지막 뉴스 수집 이후 새로 들어온 기사.',
     kinds: KINDS,
     kindNotes: { '인허가·정책': '허가·식약처·수가 등', '투자': '투자 유치·시리즈·IPO 등', '병원·임상': 'MOU·공급계약·임상 등', '연구·R&D': '과제 선정·특허·논문 등',
                  '제품·출시': '출시·신제품·매출 등', '전시·해외': 'CES·FDA·수출 등', '경쟁사·파트너사': '분류 키워드 없는 기사' },

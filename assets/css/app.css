@@ -1252,3 +1252,17 @@ a.mail-over-tile:hover { border-color: #0a7a5c; }
 .mail-over-tile.warn b { color: var(--red, #b91c1c); }
 @media (max-width: 1100px) { .mail-over { grid-template-columns: 1fr; } }
 .mail-over > .schedule-card { display: flex; flex-direction: column; justify-content: center; }
+/* 디지털의료기기 대장: 대분류(회사, 초록) · 소분류(제품, 회색) */
+table.dd-tree tr.dd-group > td { background: #e9f7f1; border-top: 1px solid #b9e4d3; cursor: pointer; }
+table.dd-tree tr.dd-group:hover > td, table.dd-tree tr.dd-group.open > td { background: #d7f0e6; }
+table.dd-tree tr.dd-group .tri { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border: 1px solid #9fd9c3; border-radius: 6px; background: #fff; }
+table.dd-tree tr.dd-group .company-link { font-weight: 700; margin-right: 6px; }
+table.dd-tree tr.dd-sub > td { background: #f4f6f8; font-size: 0.95rem; cursor: pointer; }
+table.dd-tree tr.dd-sub:hover > td, table.dd-tree tr.dd-sub.open > td { background: #eaeef2; }
+table.dd-tree tr.dd-sub.is-new > td { background: #fff8ec; }
+table.dd-tree tr.detail > td { background: #fafbfc; }
+table.dd-tree td.wrap { position: relative; }
+.dd-name { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dd-acts { display: inline-flex; gap: 6px; align-items: center; margin-left: 10px; vertical-align: middle; }
+.dd-tree .w-n { width: 80px; } .dd-tree .w-co { width: 200px; } .dd-tree .w-date { width: 110px; }
+.wk-today { border-color: #f0b46b; } .wk-today.on { border-color: var(--navy); }
