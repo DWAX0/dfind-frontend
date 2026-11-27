@@ -36,8 +36,9 @@
           h('span', { class: 'note', text: '마지막 발송' }), h('b', { text: last ? RES[last.status] || last.status : '기록 없음' }),
           h('span', { class: 'note', text: last ? D.fmtTime(last.sent_at) + ' · ' + last.success_count + '/' + last.recipient_count + '명' : '아직 보낸 적 없음' })));
     });
-    return h('section', { class: 'mail-over', 'aria-label': '발송 요약' },
-      D.scheduleCard ? D.scheduleCard('mail_daily', '요약 메일 자동 발송 시각') : null, tiles);
+    var auto = D.mailAutoStatus(); auto.classList.add('wide');
+    return h('div', { class: 'stack' }, h('section', { class: 'mail-over', 'aria-label': '발송 요약' },
+      D.scheduleCard ? D.scheduleCard('mail_daily', '요약 메일 자동 발송 시각') : null, tiles), auto);
   }
   load();
 

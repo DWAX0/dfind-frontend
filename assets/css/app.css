@@ -1273,4 +1273,15 @@ table.news-table a.list-title, .lead-news a.lead-title, .lead-item.first .lead-t
 .hl-topic { color: #111; font-weight: 700; }
 a:hover .hl-topic, a:focus-visible .hl-topic { color: inherit; }
 .pub-etc { color: var(--muted, #6b7280); cursor: help; }
-.dd-group .dd-more { margin-left: 10px; vertical-align: middle; }
+/* 오늘 자동 발송 상태 */
+.mail-over-tiles.one { grid-template-columns: minmax(0, 520px); margin-bottom: 4px; }
+.mail-over-tile.mail-auto b { font-size: 1.15rem; line-height: 1.35; }
+.mail-over-tile.ok b { color: #0a7a5c; }
+.mail-over-tile.warn { border-color: #f5c08a; background: #fff8f0; }
+.mail-over-tile.warn b { color: #c2410c; }
+.mail-over-tile .chips { margin-top: 6px; }
+@media (max-width: 900px) { .mail-over-tiles { grid-template-columns: 1fr; } }
+.mail-over-tile.mail-auto.wide { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 14px; }
+.mail-over-tile.mail-auto.wide .chips { margin: 0 0 0 auto; }
+.mail-over-tiles.one .mail-auto { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 14px; }
+.mail-over-tiles.one { grid-template-columns: 1fr; }

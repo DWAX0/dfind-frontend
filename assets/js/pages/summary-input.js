@@ -18,10 +18,13 @@
   var countNote = h('span', { class: 'note' });
   function say(text, kind) { msg.hidden = false; msg.className = 'notice ' + (kind || 'info'); msg.textContent = text; }
 
+  var autoBox = h('div', { class: 'mail-over-tiles one' }, D.mailAutoStatus());
   var bar = D.periodBar({ dayOnly: true, onChange: function (r) { day = r.to; load(); } });
   D.set(main,
     D.header('오늘의 결론 입력', 'API 비용 없이, 회사에서 쓰는 Claude 앱으로 결론을 만들어 저장합니다', { admin: true }),
     bar, msg,
+    autoBox,
+    h('p', { class: 'note', text: '메일 자동 발송 규칙: 예약 시각 전에 오늘의 결론을 저장하면 그 시각에 자동 발송 · 저장하지 않으면 자동 발송은 보류되고 메일 리포트에서 직접 보냅니다.' }),
     h('section', { class: 'card' }, h('h2', { text: '지금 저장된 결론' }), current),
     h('section', { class: 'card' },
       h('div', { class: 'card-head' }, h('h2', { text: '① Claude 에 붙여넣을 글 복사' }), countNote),
@@ -129,7 +132,8 @@
         summary_date: day, kind: 'daily', period_from: D.addDays(day, -1), period_to: day, conclusions: list,
         input_count: items.length, model: 'claude-app', status: 'success', error_message: null
       }, { onConflict: 'summary_date,kind' }));
-      say(D.fmtLong(day) + ' 결론을 저장했습니다. SUMMARY 화면에 바로 보입니다.');
+      say(D.fmtLong(day) + ' 결론을 저장했습니다. SUMMARY 화면에 바로 보입니다.' + (day === D.today() ? ' 오늘 메일은 예약 시각에 자동 발송됩니다.' : ''));
+      D.set(autoBox, D.mailAutoStatus());
       answer.value = '';
       load();
     } catch (e) { say('저장하지 못했습니다: ' + ((e && e.message) || e), 'error'); }

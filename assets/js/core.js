@@ -459,6 +459,38 @@
   /* 관리자: 메일 리포트 전송 — 내용 확인 → [나에게 시험 발송] / [수신자 전체에게 보내기]
      요청은 mail_requests 에 남고 GitHub 작업 mail-send 가 보냄 (Supabase Vault 설정 시 바로, 아니면 다음 실행 때) */
   var REQ_ST = { requested: ['대기', 'warn'], dispatched: ['보내는 중', 'warn'], sent: ['보냄', 'ok'], failed: ['실패', 'bad'], skipped: ['건너뜀', 'gray'] };
+  /* 오늘 메일 자동 발송 상태 (관리자): 예약 시각까지 '오늘의 결론 입력'이 있어야 자동 발송, 없으면 보류 → 직접 보내기 */
+  D.openMailDialog = function () { return openMailDialog(); };
+  D.mailAutoStatus = function () {
+    var box = D.h('div', { class: 'mail-over-tile mail-auto' }, D.h('span', { class: 'note', text: '오늘 자동 발송' }), D.h('b', { text: '확인 중…' }));
+    var today = D.today();
+    Promise.all([
+      D.rpc('dash_schedules').catch(function () { return {}; }),
+      D.q(D.sb.from('daily_summaries').select('model,status').eq('kind', 'daily').eq('summary_date', today)).catch(function () { return []; }),
+      D.q(D.sb.from('mail_send_logs').select('status,sent_at').eq('mail_kind', 'daily').eq('mail_date', today).in('status', ['success', 'partial']).limit(1)).catch(function () { return []; })
+    ]).then(function (r) {
+      var it = ((r[0] || {}).items || []).filter(function (x) { return x.name === 'mail_daily'; })[0] || {};
+      var entered = (r[1] || []).some(function (x) { return x.model === 'claude-app' && x.status !== 'failed'; });
+      var sent = (r[2] || [])[0];
+      var tm = it.run_time || '';
+      var now = new Date(Date.now() + 9 * 3600e3), hm = now.toISOString().slice(11, 16), wd = now.getUTCDay();
+      var off = it.weekdays_only && (wd === 0 || wd === 6);
+      var sendBtn = D.h('button', { type: 'button', class: 'btn small primary', text: '지금 직접 보내기', onclick: openMailDialog });
+      var inputLink = /admin-summary\.html/.test(location.pathname) ? null : D.h('a', { class: 'btn small', href: 'admin-summary.html', text: '오늘의 결론 입력 →' });
+      var st, cls = '', note, acts = null;
+      if (sent) { st = '발송 완료'; note = D.fmtTime(sent.sent_at) + ' 에 보냄'; }
+      else if (it.enabled === false) { st = '자동 발송 꺼짐'; note = '메일 수신자 화면에서 켤 수 있음 · 필요하면 직접 보내기'; acts = sendBtn; }
+      else if (off) { st = '오늘은 쉼 (주말)'; note = '평일에만 자동 발송'; }
+      else if (entered) { st = tm && hm >= tm ? '자동 발송 진행 중' : tm + ' 자동 발송 예정'; cls = ' ok'; note = '오늘의 결론이 입력되어 있어 예약 시각에 보냅니다'; }
+      else if (tm && hm < tm) { st = '결론 미입력 · ' + tm + ' 전까지 입력'; cls = ' warn'; note = '입력하지 않으면 자동 발송은 보류되고, 직접 보내야 합니다'; acts = inputLink; }
+      else { st = '보류됨 (결론 미입력)'; cls = ' warn'; note = '오늘의 결론을 입력한 뒤 직접 보내 주세요'; acts = [inputLink, sendBtn]; }
+      box.className = 'mail-over-tile mail-auto' + cls + (box.classList.contains('wide') ? ' wide' : '');
+      D.set(box, D.h('span', { class: 'note', text: '오늘 자동 발송' }), D.h('b', { text: st }), D.h('span', { class: 'note', text: note }),
+        acts ? D.h('span', { class: 'chips' }, acts) : null);
+    });
+    return box;
+  };
+
   async function openMailDialog() {
     var day = D.today();
     var body = D.h('div', { class: 'dialog-body' }, D.loading());

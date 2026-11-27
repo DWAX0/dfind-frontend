@@ -313,11 +313,10 @@
         h('td', { class: 'nowrap num-cell-left', text: it[0].approval_date || '–' }),
         h('td', { class: 'nowrap' }, g.id ? D.companyLink(g.id, g.name) : h('b', { text: g.name }), nNew ? D.badge('NEW ' + nNew, 'new') : null),
         h('td', { class: 'nowrap' }, h('b', { class: 'num', text: it.length + '개' })),
-        h('td', { class: 'wrap' }, h('span', { class: 'dd-name', text: names.slice(0, 3).join(', ') + (names.length > 3 ? ' 외 ' + (names.length - 3) + '개' : '') }),
-          h('button', { type: 'button', class: 'btn small dd-more', 'aria-expanded': op ? 'true' : 'false', text: op ? '접기' : '상세보기', onclick: toggle }))));
+        h('td', { class: 'wrap' }, h('span', { class: 'dd-name', text: names.slice(0, 3).join(', ') + (names.length > 3 ? ' 외 ' + (names.length - 3) + '개' : '') }))));
       if (!op) return;
       // 소분류 (제품, 회색): 허가일 · 제품코드 · 제품 (구분은 제품명 옆 태그)
-      // 상세보기로 펼치면 제품마다 번호·등급·사용목적 등 세부 내용까지 바로 보임 (제품 줄을 누르면 접힘)
+      // 화살표(▸)로 펼치면 제품마다 번호·등급·사용목적 등 세부 내용까지 바로 보임 (제품 줄을 누르면 접힘)
       it.forEach(function (r) {
         var rt = RT[r.registration_type] || [r.registration_type || '–', 'gray'], key = 'p' + r.registration_id, sop = bd.open[key] !== false;
         body.appendChild(h('tr', { class: 'dd-sub' + (recentNew(r.approval_date) ? ' is-new' : '') + (sop ? ' open' : ''), tabindex: '0', 'aria-expanded': sop ? 'true' : 'false',
@@ -335,7 +334,7 @@
     return [h('div', { class: 'table-wrap' }, h('table', { class: 'grid dd-tree' },
       h('thead', null, h('tr', null, [['', 'w-star'], ['허가일', 'w-date'], ['회사 / 제품코드', 'w-co'], ['제품 수', 'w-n'], ['제품', null]].map(function (x) {
         return h('th', { scope: 'col', class: x[1], text: x[0] }); }))), body)),
-      h('p', { class: 'note', text: '회사 ' + order.length + '곳 · 제품 ' + list.length + '개 · 최근 허가가 있는 회사 순 · 초록 줄(회사)의 상세보기를 누르면 제품마다 번호·등급·사용목적 등 세부 내용까지 펼쳐짐' }),
+      h('p', { class: 'note', text: '회사 ' + order.length + '곳 · 제품 ' + list.length + '개 · 최근 허가가 있는 회사 순 · 초록 줄(회사)의 화살표 ▸ 를 누르면 제품마다 번호·등급·사용목적 등 세부 내용까지 펼쳐짐' }),
       order.length > bd.shown ? h('button', { type: 'button', class: 'btn more', text: '100곳 더 보기', onclick: function () { bd.shown += 100; drawTable(); } }) : null];
   }
   function productTable() {
