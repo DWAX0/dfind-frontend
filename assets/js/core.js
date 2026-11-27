@@ -123,8 +123,22 @@
     return id ? D.h('a', { class: 'company-link', href: D.companyHref(id), text: name }) : D.h('b', { text: name });
   };
   /* 정보 한 줄 (dash_feed 행) */
+  /* 제목 링크: 원문 주소가 있으면 바로 (새 창), 없을 때만 대시보드 정보 보기 */
+  D.titleLink = function (f, cls) {
+    var t = D.clean(f.title) || '(제목 없음)';
+    return f.url ? D.h('a', { class: cls || 'list-title', href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '원문 (새 창)', text: t })
+                 : D.h('a', { class: cls || 'list-title', href: D.itemHref(f.item_key), text: t });
+  };
   D.feedItem = function (f, opts) {
     var o = opts || {};
+    // compact (분야별 최신 정보): 새 소식이 있다는 것만 한 줄로, 제목은 원문으로 바로. 자세한 내용은 기업 정보에서
+    if (o.compact) {
+      return D.h('div', { class: 'list-item compact' },
+        D.h('div', { class: 'list-meta' }, D.catBadge(f.category, f.kind), D.isNewItem(f) ? D.badge('NEW', 'new') : null,
+          D.titleLink(f), D.companyLink(f.company_id, f.company_name),
+          D.h('span', { class: 'note', text: [D.fmt(f.item_date), f.source_label].filter(Boolean).join(' · ') }),
+          o.noStar ? null : D.favButton('item', f.item_key, D.clean(f.title), { small: true, right: true })));
+    }
     // 제목 → 대시보드 안 자세히 보기, 옆에 원본 보기 · 첨부는 원본 사이트에서 바로 받기
     var title = D.h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' });
     var files = (o.files || []).filter(function (x) { return x.download_url; });
@@ -322,6 +336,7 @@
     var ROLE = { admin: '관리자', viewer: '조회' };
     D.set(gnb,
       D.h('div', { class: 'gnb-site' }, D.h('b', { text: 'D*Find' }), D.h('span', { text: '유망 디지털헬스케어 기업 발굴' })),
+      gnbSearch(),
       D.h('div', { class: 'gnb-crawl' }, D.svg('M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18', 18),
         D.h('span', { text: '마지막 수집' }), D.h('b', { id: 'last-crawl', text: '확인 중…' }), D.h('span', { id: 'crawl-health' })),
       D.h('div', { class: 'gnb-right' },
@@ -334,13 +349,103 @@
     setFontLabel();
   }
 
+  /* ---- 통합 검색 (위쪽 막대): 검색어 + [키워드] 고르기 → search.html ----
+     키워드 = 키워드 사전(분야·신호·규제) · 뉴스 분류 · 최근 검색어 (이 브라우저에만) */
+  var RECENT_KEY = 'dfind.recentSearch';
+  D.recentSearches = function () { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, 8); } catch (e) { return []; } };
+  D.rememberSearch = function (q) {
+    if (!q) return;
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify([q].concat(D.recentSearches().filter(function (x) { return x !== q; })).slice(0, 8))); } catch (e) { /* 저장 안 되는 환경 */ }
+  };
+  D.goSearch = function (q, extra) {
+    q = (q || '').trim();
+    if (!q) return;
+    D.rememberSearch(q);
+    var u = new URLSearchParams(extra || {}); u.set('q', q);
+    location.href = D.root + 'search.html?' + u.toString();
+  };
+  var kwCache = null;
+  D.loadSearchKeywords = async function () {
+    if (kwCache) return kwCache;
+    var kws = [], topics = [];
+    try { kws = await D.q(D.sb.from('keywords').select('term,keyword_category').eq('is_active', true).order('term')); } catch (e) { console.error(e); }
+    try { topics = await D.q(D.sb.from('news_topic_terms').select('topic,term').order('term_id')); } catch (e) { topics = []; }
+    kwCache = { kws: kws, topics: topics };
+    return kwCache;
+  };
+  var KW_GROUP = [['domain', '분야'], ['regulation', '인허가·규제'], ['signal', '신호'], ['organization', '기관']];
+  D.keywordPicker = function (onPick) {
+    var box = D.h('div', { class: 'kw-picker', role: 'dialog', 'aria-label': '키워드 고르기' }, D.loading('키워드를 불러오는 중…'));
+    D.loadSearchKeywords().then(function (k) {
+      var recent = D.recentSearches();
+      function chips(list) { return D.h('div', { class: 'kw-pick-chips' }, list.map(function (t) { return D.h('button', { type: 'button', class: 'chip small', text: t, onclick: function () { onPick(t); } }); })); }
+      D.set(box,
+        recent.length ? [D.h('h4', { text: '최근 검색' }), chips(recent)] : null,
+        KW_GROUP.map(function (g) {
+          var list = k.kws.filter(function (x) { return x.keyword_category === g[0]; }).map(function (x) { return x.term; });
+          return list.length ? [D.h('h4', { text: g[1] + ' 키워드' }), chips(list)] : null;
+        }),
+        k.topics.length ? [D.h('h4', { text: '뉴스 분류 키워드 (자주 쓰는 것)' }),
+          chips(k.topics.filter(function (x) { return x.topic !== 'ai'; }).map(function (x) { return x.term; }).filter(function (t) { return t.length >= 2; }).slice(0, 40))] : null,
+        D.h('p', { class: 'note small', text: '키워드를 누르면 바로 검색합니다. 대표어·비슷한 말(예: 의료AI = 의료 인공지능)을 같이 찾습니다.' }));
+    });
+    return box;
+  };
+  function gnbSearch() {
+    if (!D.role) return null;
+    var input = D.h('input', { type: 'search', class: 'input', id: 'gnb-q', placeholder: '기업 · 제품 · 키워드 통합 검색', 'aria-label': '통합 검색',
+      value: /search\.html/.test(location.pathname) ? (new URLSearchParams(location.search).get('q') || '') : '' });
+    var pop = D.h('div', { class: 'gnb-pop', hidden: true });
+    var kwBtn = D.h('button', { type: 'button', class: 'btn small', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', text: '키워드 ▾', onclick: function (e) {
+      e.stopPropagation();
+      var open = pop.hidden;
+      if (open && !pop.firstChild) pop.appendChild(D.keywordPicker(function (t) { input.value = t; D.goSearch(t); }));
+      pop.hidden = !open; kwBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    } });
+    document.addEventListener('click', function (e) { if (!pop.hidden && !pop.contains(e.target)) { pop.hidden = true; kwBtn.setAttribute('aria-expanded', 'false'); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !pop.hidden) { pop.hidden = true; kwBtn.setAttribute('aria-expanded', 'false'); kwBtn.focus(); } });
+    return D.h('form', { class: 'gnb-search', role: 'search', onsubmit: function (e) { e.preventDefault(); D.goSearch(input.value); } },
+      D.svg('M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4', 18), input, kwBtn,
+      D.h('button', { type: 'submit', class: 'btn small primary', text: '검색' }), pop);
+  }
+
+  /* 메일 미리 보기: 새 소식을 분야별로 (같은 기사 묶음은 대표 1건 + 외 N건, 대표 = 언론사 우선순위가 높은 것) */
+  var MAIL_CATS = [['permit', '인허가·제도'], ['research', '연구·과제'], ['disclosure', '공시'], ['market', '뉴스']];
+  function mailNews(items) {
+    var seen = {}, out = [];
+    items.forEach(function (it) {
+      var g = it.dup_group;
+      if (g && seen[g]) { seen[g].dups.push(it); return; }
+      var x = Object.assign({ dups: [] }, it);
+      if (g) seen[g] = x;
+      out.push(x);
+    });
+    out = out.map(function (x) {
+      if (!x.dups.length) return x;
+      var all = [x].concat(x.dups).sort(function (a, b) { return (a.pub_rank || 99) - (b.pub_rank || 99); });
+      return Object.assign({}, all[0], { dups: all.slice(1) });
+    });
+    var kinds = {};
+    out.forEach(function (x) { kinds[x.kind] = (kinds[x.kind] || 0) + 1; });
+    return { total: out.length,
+      kinds: Object.keys(kinds).map(function (k) { return [k, kinds[k]]; }).sort(function (a, b) { return b[1] - a[1]; }),
+      sections: MAIL_CATS.map(function (c) { return { cat: c[0], label: c[1], items: out.filter(function (x) { return x.category === c[0]; }) }; })
+        .filter(function (sec) { return sec.items.length; }) };
+  }
+  function mailItem(x) {
+    return D.h('li', null, D.catBadge(x.category, x.kind),
+      x.company_name ? D.h('b', { class: 'mail-co', text: x.company_name }) : null,
+      D.titleLink(x), x.dups.length ? D.h('span', { class: 'note', text: '외 ' + x.dups.length + '건' }) : null,
+      D.h('span', { class: 'note', text: [D.fmt(x.item_date), x.source_label].filter(Boolean).join(' · ') }));
+  }
+
   /* 관리자: 메일 리포트 전송 — 내용 확인 → [나에게 시험 발송] / [수신자 전체에게 보내기]
      요청은 mail_requests 에 남고 GitHub 작업 mail-send 가 보냄 (Supabase Vault 설정 시 바로, 아니면 다음 실행 때) */
   var REQ_ST = { requested: ['대기', 'warn'], dispatched: ['보내는 중', 'warn'], sent: ['보냄', 'ok'], failed: ['실패', 'bad'], skipped: ['건너뜀', 'gray'] };
   async function openMailDialog() {
     var day = D.today();
     var body = D.h('div', { class: 'dialog-body' }, D.loading());
-    var dlg = D.h('dialog', { class: 'dialog', 'aria-labelledby': 'mail-dlg-h' },
+    var dlg = D.h('dialog', { class: 'dialog wide mail-dlg', 'aria-labelledby': 'mail-dlg-h' },
       D.h('div', { class: 'card-head' }, D.h('h2', { id: 'mail-dlg-h', text: '메일 리포트 전송' }),
         D.h('button', { type: 'button', class: 'btn small right', text: '닫기', onclick: function () { dlg.close(); } })),
       body);
@@ -374,17 +479,38 @@
     }
     var res = await Promise.all([
       D.q(D.sb.from('daily_summaries').select('conclusions,model,status').eq('kind', 'daily').eq('summary_date', day).maybeSingle()).catch(function () { return null; }),
-      D.q(D.sb.from('mail_recipients').select('recipient_id').eq('is_active', true).eq('receive_daily', true)).catch(function () { return []; })
+      D.q(D.sb.from('mail_recipients').select('recipient_id').eq('is_active', true).eq('receive_daily', true)).catch(function () { return []; }),
+      D.rpc('admin_report_preview', { p_date: day }).catch(function (e) { console.error(e); return null; })
     ]);
-    var sum = res[0], n = (res[1] || []).length;
+    var sum = res[0], n = (res[1] || []).length, pv = res[2] || { items: [] };
+    var news = mailNews(pv.items || []);
     D.set(body,
-      D.h('dl', { class: 'info' }, D.h('dt', { text: '날짜' }), D.h('dd', { text: D.fmtLong(day) }),
-        D.h('dt', { text: '받는 사람' }), D.h('dd', null, n + '명 ', D.h('a', { href: D.root + 'admin-recipients.html', text: '수신자 관리' }))),
-      D.h('h3', { text: '본문 첫 단락 (오늘의 결론)' }),
-      sum && (sum.conclusions || []).length ? D.h('ol', { class: 'dialog-list' }, sum.conclusions.map(function (c) { return D.h('li', null, D.rich(c.text)); }))
-        : D.h('p', { class: 'notice', text: '오늘 결론이 아직 없습니다. 이대로 보내면 규칙 방식 결론이 자동으로 들어갑니다. (먼저 오늘의 결론 입력을 하셔도 됩니다)' }),
-      D.h('p', { class: 'note', text: '메일에는 결론 · 주목 기업 TOP 5 · 분야별 새 소식이 들어갑니다. 네이버 검색 기사는 약관 때문에 넣지 않습니다. 같은 날짜는 한 번만 보냅니다.' }),
-      D.h('div', { class: 'chips' },
+      D.h('div', { class: 'mail-top' },
+        D.h('div', { class: 'mail-fact' }, D.h('span', { class: 'note', text: '보내는 날' }), D.h('b', { text: D.fmtLong(day) })),
+        D.h('div', { class: 'mail-fact' }, D.h('span', { class: 'note', text: '받는 사람' }), D.h('b', { text: n + '명' }), D.h('a', { href: D.root + 'admin-recipients.html', text: '수신자 관리' })),
+        D.h('div', { class: 'mail-fact' }, D.h('span', { class: 'note', text: '새 소식 기간' }),
+          D.h('b', { text: pv.since ? D.fmtTime(pv.since) + ' ~ ' + (pv.until ? D.fmtTime(pv.until) : '지금') : '–' })),
+        D.h('div', { class: 'mail-fact hi' }, D.h('span', { class: 'note', text: '업데이트 소식' }), D.h('b', { class: 'big', text: news.total + '건' }))),
+      // 1) 업데이트 소식 (메일의 '분야별 새 소식'과 같은 내용)
+      D.h('section', { class: 'mail-sec', 'aria-labelledby': 'mail-upd-h' },
+        D.h('h3', { id: 'mail-upd-h', text: '이번 메일에 들어갈 업데이트 소식' }),
+        news.total ? [
+          D.h('div', { class: 'mail-kinds' }, news.kinds.map(function (k) { return D.h('span', { class: 'upd-kind' }, k[0], D.h('b', { text: k[1] })); })),
+          news.sections.map(function (sec) {
+            var shown = 6, ul = D.h('ul', { class: 'mail-items' });
+            function fill() { D.set(ul, sec.items.slice(0, shown).map(mailItem)); }
+            fill();
+            var more = sec.items.length > shown ? D.h('button', { type: 'button', class: 'link-btn', text: '나머지 ' + (sec.items.length - shown) + '건 더 보기 ▾', onclick: function (e) { shown = sec.items.length; fill(); e.currentTarget.remove(); } }) : null;
+            return D.h('div', { class: 'mail-cat' }, D.h('h4', null, D.h('span', { class: 'dot dot-' + sec.cat }), ' ' + sec.label, D.h('span', { class: 'note', text: ' ' + sec.items.length + '건' })), ul, more);
+          })]
+          : D.h('p', { class: 'notice', text: '지난 리포트 뒤로 새로 들어온 소식이 없습니다. 이대로 보내면 "새 소식 없음"으로 나갑니다.' })),
+      // 2) 오늘의 결론
+      D.h('section', { class: 'mail-sec', 'aria-labelledby': 'mail-con-h' },
+        D.h('h3', { id: 'mail-con-h', text: '본문 첫 단락 (오늘의 결론)' }),
+        sum && (sum.conclusions || []).length ? D.h('ol', { class: 'dialog-list' }, sum.conclusions.map(function (c) { return D.h('li', null, D.rich(c.text)); }))
+          : D.h('p', { class: 'note', text: '오늘 결론이 아직 없습니다. 이대로 보내면 위 소식으로 만든 규칙 방식 결론이 자동으로 들어갑니다. (먼저 오늘의 결론 입력을 하셔도 됩니다)' })),
+      D.h('p', { class: 'note', text: '메일에는 결론 · 주목 기업 TOP 5 · 위 업데이트 소식이 들어갑니다. 네이버 검색 기사는 약관 때문에 넣지 않고, 같은 기사는 1건으로 묶습니다. 같은 날짜는 한 번만 보냅니다.' }),
+      D.h('div', { class: 'chips mail-actions' },
         D.h('button', { type: 'button', class: 'btn', onclick: function () { request(D.user.email); } }, '나에게 시험 발송'),
         D.h('button', { type: 'button', class: 'btn primary', disabled: !n, onclick: function () { request(null); } }, '수신자 전체에게 보내기')),
       msg,

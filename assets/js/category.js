@@ -169,7 +169,8 @@
   D.categoryPage = async function (o) {
     var main = await D.boot(o.page);
     if (!main) return;
-    var ctx = { rows: [], files: {}, kind: 'all', q: '', group: true, shown: 60, groupOf: {} };
+    // 분야별 최신 정보: 새 소식 확인용 한 줄 목록 (o.compact 가 false 일 때만 자세히)
+    var ctx = { rows: [], files: {}, kind: 'all', q: '', group: true, shown: 60, groupOf: {}, compact: o.compact !== false };
     var tiles = h('section', { class: 'tiles', 'aria-label': '종류별 건수 (누르면 걸러 보기)' });
     var listCard = h('section', { class: 'card', 'aria-labelledby': 'list-h' });
     var panel = D.searchPanel({ kinds: o.kinds, defaultPer: o.defaultPer, searchHint: o.searchHint, onSearch: load,
@@ -218,7 +219,7 @@
 
   /* 목록 한 줄 (+ 같은 소식 펼치기, 본문·첨부에서 찾음 표시) */
   D.listEntry = function (g, ctx) {
-    var el = D.feedItem(g.f, { files: ctx.files[g.f.item_key] });
+    var el = D.feedItem(g.f, { files: ctx.files[g.f.item_key], compact: ctx.compact });
     if (D.foundInside(g.f, ctx.q)) el.querySelector('.list-meta').appendChild(D.badge('본문·첨부에서 찾음', 'warn'));
     if (g.dups.length) el.appendChild(D.dupToggle(g.dups));
     return el;

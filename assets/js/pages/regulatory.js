@@ -180,7 +180,7 @@
         h('td', { class: 'nowrap' }, g.id ? D.companyLink(g.id, g.name) : h('b', { text: g.name })),
         h('td', { class: 'num-cell', text: g.items.length + '건' }),
         h('td', null, h('span', { class: 'chips tight' }, Object.keys(kinds).map(function (kd) { return h('span', { class: 'mini-kind' }, D.catBadge('permit', kd), ' ' + kinds[kd]); }))),
-        h('td', { class: 'wrap' }, h('span', { class: 'co-latest', text: D.clean(g.items[0].title).slice(0, 80) })),
+        h('td', { class: 'wrap' }, D.titleLink(g.items[0], 'list-title co-latest')),
         h('td', { class: 'nowrap', text: g.items[0].item_date || '–' }),
         h('td', null, nNew ? D.badge('NEW ' + nNew, 'new') : null));
       body.appendChild(row);
@@ -193,24 +193,20 @@
   }
   function feedTable(list) {
     if (!list.length) return D.empty(st.q ? '"' + st.q + '" 이(가) 들어간 인허가 소식이 없습니다.' : '이 기간에는 인허가 소식이 없습니다.');
+    // 최신 정보 확인용: 날짜 · 종류 · 업체 · 제목(누르면 원문 바로) · 신규. 자세한 내용은 업체 → 기업 정보에서
     return [h('div', { class: 'table-wrap' }, h('table', { class: 'grid permit-table' },
-      h('thead', null, h('tr', null, ['날짜', '종류', '업체', '내용', '첨부', '신규', ''].map(function (x, i) { return h('th', { scope: 'col', class: i === 6 ? 'w-star' : null, text: x }); }))),
+      h('thead', null, h('tr', null, ['날짜', '종류', '업체', '제목', '신규', ''].map(function (x, i) { return h('th', { scope: 'col', class: i === 5 ? 'w-star' : null, text: x }); }))),
       h('tbody', null, list.map(function (f) {
         var isNew = D.isNewItem(f);
-        var fl = (files[f.item_key] || []).filter(function (x) { return x.download_url; });
         return h('tr', { class: isNew ? 'is-new' : null },
           h('td', { class: 'nowrap num-cell-left', text: f.item_date ? md(f.item_date) + '(' + DAY[dow(f.item_date)] + ')' : '' }),
           h('td', null, D.catBadge('permit', f.kind)),
           h('td', { class: 'nowrap' }, D.companyLink(f.company_id, f.company_name) || h('span', { class: 'note', text: '–' })),
-          h('td', { class: 'wrap' }, h('a', { class: 'list-title', href: D.itemHref(f.item_key), text: D.clean(f.title) || '(제목 없음)' }),
-            f.detail ? h('span', { class: 'list-detail block', text: D.clean(f.detail).slice(0, 160) }) : null,
-            D.foundInside(f, st.q) ? D.badge('본문·첨부에서 찾음', 'warn') : null),
-          h('td', null, fl.length ? h('span', { class: 'list-files' }, fl.map(function (x) { return D.fileLink(x); })) : h('span', { class: 'note', text: '–' })),
+          h('td', { class: 'wrap' }, D.titleLink(f), D.foundInside(f, st.q) ? D.badge('본문·첨부에서 찾음', 'warn') : null),
           h('td', null, isNew ? D.badge('NEW', 'new') : null),
-          h('td', { class: 'nowrap' }, f.url ? h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer', title: '원본 보기', text: '원문 ↗' }) : null, ' ',
-            D.favButton('item', f.item_key, D.clean(f.title), { small: true })));
+          h('td', { class: 'nowrap' }, D.favButton('item', f.item_key, D.clean(f.title), { small: true })));
       })))),
-      h('p', { class: 'note', text: list.length + '건 · 날짜 최신순 · 신규 = 출처마다 마지막 수집 이후 새로 들어온 것 (줄 색으로 표시)' })];
+      h('p', { class: 'note', text: list.length + '건 · 날짜 최신순 · 제목을 누르면 원문으로 바로 · 자세한 내용은 업체를 눌러 기업 정보에서 · 신규 = 출처마다 마지막 수집 이후 새로 들어온 것' })];
   }
 
   // ================= 디지털의료기기 정보방: 엑셀 대장을 표로 (기간과 상관없이 전체) =================
